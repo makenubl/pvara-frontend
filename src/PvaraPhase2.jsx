@@ -176,7 +176,7 @@ function PvaraPhase2() {
     audit("create-job", { jobId: j.id, title: j.title });
     setJobForm(emptyJobForm);
     addToast("Job created (local)", { type: "success" });
-  }, [editingJobId, jobForm, addToast]);
+  }, [editingJobId, jobForm, addToast, state]);
 
   function audit(action, details) {
     // CORRECTED: use a template literal so JS parses it
@@ -203,7 +203,7 @@ function PvaraPhase2() {
     setState((s) => ({ ...s, jobs: (s.jobs || []).filter((j) => j.id !== jobId) }));
     audit("delete-job", { jobId });
     addToast("Job deleted", { type: "info" });
-  }, [addToast]);
+  }, [addToast, state]);
 
   function submitApplication(e) {
     e?.preventDefault();
@@ -645,7 +645,7 @@ function PvaraPhase2() {
     // Sync local state when jobForm prop changes (e.g., when editing)
     useEffect(() => {
       setLocalForm(jobForm);
-    }, [editingJobId]);
+    }, [editingJobId, jobForm]);
 
     const handleLocalChange = useCallback((field, value) => {
       setLocalForm(prev => ({ ...prev, [field]: value }));
@@ -732,7 +732,7 @@ function PvaraPhase2() {
 
     useEffect(() => {
       setLocalForm(appForm);
-    }, []);
+    }, [appForm]);
 
     const handleLocalChange = useCallback((field, value) => {
       setLocalForm(prev => ({ ...prev, [field]: value }));
