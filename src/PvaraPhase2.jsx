@@ -251,7 +251,30 @@ function PvaraPhase2() {
     addToast("Application submitted: " + app.status, { type: "success" });
   }
 
-  function openDrawer(app) {
+  // Simple job form validator (inline validations)
+  function validateJobForm(form) {
+    const errs = [];
+    if (!form.title || !form.title.trim()) errs.push("Title required");
+    if (!form.department || !form.department.trim()) errs.push("Department required");
+    if (form.openings && Number(form.openings) <= 0) errs.push("Openings must be > 0");
+    if (form.salary && Number(form.salary.min) > Number(form.salary.max)) errs.push("Salary min must be <= max");
+    return errs;
+  }
+
+  // Change application status (shortlist, interview, reject, hired, etc.)
+  function changeApplicationStatus(appId, status, note) {
+    setState((s) => {
+      const apps = (s.applications || []).map((a) => (a.id === appId ? { ...a, status, screeningErrors: status === 'rejected' ? [note || 'Rejected by reviewer'] : (a.screeningErrors || []) } : a));
+      return { ...s, applications: apps };
+    });
+    audit("change-app-status", { appId, status, note });
+    addToast("Application status updated: " + status, { type: status === 'rejected' ? 'error' : 'success' });
+    setDrawer((d) => (d.open && d.app && d.app.id === appId ? { ...d, app: { ...d.app, status } } : d));
+  }
+
+  // openDrawer accepts either an application object or an id and always resolves latest state
+  function openDrawer(appOrId) {
+    const app = typeof appOrId === 'string' ? (state.applications || []).find((x) => x.id === appOrId) : appOrId;
     setDrawer({ open: true, app });
   }
   function closeDrawer() {
@@ -485,16 +508,30 @@ function PvaraPhase2() {
 
   function AdminView() {
     if (!user || user.role !== "admin") return <div>Access denied</div>;
+    const jobErrs = validateJobForm(jobForm);
     return (
       <div>
         <Header title="Admin - Create Job" />
         <div className="bg-white p-4 rounded shadow">
           <form onSubmit={createJob} className="space-y-2">
+            {jobErrs.length > 0 && (
+              <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+                {jobErrs.map((e, i) => <div key={i}>• {e}</div>)}
+              </div>
+            )}
             <input value={jobForm.title} onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })} placeholder="Title" className="border p-2 rounded w-full" />
             <input value={jobForm.department} onChange={(e) => setJobForm({ ...jobForm, department: e.target.value })} placeholder="Department" className="border p-2 rounded w-full" />
             <textarea value={jobForm.description} onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })} placeholder="Description" className="border p-2 rounded w-full" />
+            <div className="grid grid-cols-2 gap-2">
+              <input type="number" value={jobForm.openings} onChange={(e) => setJobForm({ ...jobForm, openings: parseInt(e.target.value) || 1 })} placeholder="Openings" className="border p-2 rounded w-full" />
+              <input value={jobForm.employmentType} onChange={(e) => setJobForm({ ...jobForm, employmentType: e.target.value })} placeholder="Employment Type" className="border p-2 rounded w-full" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input type="number" value={jobForm.salary.min} onChange={(e) => setJobForm({ ...jobForm, salary: { ...jobForm.salary, min: parseInt(e.target.value) || 0 } })} placeholder="Salary Min" className="border p-2 rounded w-full" />
+              <input type="number" value={jobForm.salary.max} onChange={(e) => setJobForm({ ...jobForm, salary: { ...jobForm.salary, max: parseInt(e.target.value) || 0 } })} placeholder="Salary Max" className="border p-2 rounded w-full" />
+            </div>
             <div className="flex gap-2">
-                <button className="px-3 py-2 bg-green-700 text-white rounded">{editingJobId ? 'Update Job' : 'Create Job'}</button>
+                <button className="px-3 py-2 bg-green-700 text-white rounded disabled:opacity-50" disabled={jobErrs.length > 0}>{editingJobId ? 'Update Job' : 'Create Job'}</button>
                 <button
                   type="button"
                   onClick={() =>
@@ -701,11 +738,12 @@ function PvaraPhase2() {
             Close
           </button>
         </div>
-        <div className="p-4 overflow-auto">
+        <div className="p-4 overflow-auto h-full flex flex-col">
           {drawer.app ? (
-            <div>
+            <div className="flex-1">
               <div className="font-semibold text-lg">{drawer.app.applicant.name}</div>
               <div className="text-sm text-gray-500">Applied: {new Date(drawer.app.createdAt).toLocaleString()}</div>
+              <div className="mt-2 text-sm"><span className="font-semibold">Status:</span> <span className="text-blue-600">{drawer.app.status || "submitted"}</span></div>
               <div className="mt-2">Email: {drawer.app.applicant.email}</div>
               <div>Phone: {drawer.app.applicant.phone}</div>
               <div>Degree: {drawer.app.applicant.degree}</div>
@@ -715,6 +753,18 @@ function PvaraPhase2() {
                 <div className="font-semibold mb-2">Files</div>
                 {drawer.app.files?.length ? drawer.app.files.map((f, i) => <div key={i} className="text-sm text-blue-600">{f}</div>) : <div className="text-sm text-gray-500">No files</div>}
               </div>
+              {auth.hasRole(['hr', 'admin', 'recruiter']) && (
+                <div className="mt-4 border-t pt-4">
+                  <div className="font-semibold mb-2 text-sm">Actions</div>
+                  <div className="space-y-2">
+                    <button onClick={() => changeApplicationStatus(drawer.app.id, "screening", "")} className="w-full px-2 py-1 border rounded text-sm bg-yellow-50 hover:bg-yellow-100">Screen</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app.id, "phone-interview", "")} className="w-full px-2 py-1 border rounded text-sm bg-blue-50 hover:bg-blue-100">Phone Interview</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app.id, "interview", "")} className="w-full px-2 py-1 border rounded text-sm bg-blue-50 hover:bg-blue-100">In-Person Interview</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app.id, "offer", "")} className="w-full px-2 py-1 border rounded text-sm bg-green-50 hover:bg-green-100">Send Offer</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app.id, "rejected", "Does not meet criteria")} className="w-full px-2 py-1 border rounded text-sm bg-red-50 hover:bg-red-100">Reject</button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="p-4 text-gray-500">No application selected</div>
