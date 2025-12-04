@@ -101,10 +101,12 @@ function ConfirmModal({ open, title, message, onConfirm, onCancel }) {
 function LoginInline({ onLogin }) {
   const [u, setU] = useState("");
   const [p, setP] = useState("");
+  const handleUsernameChange = useCallback((value) => setU(value), []);
+  const handlePasswordChange = useCallback((value) => setP(value), []);
   return (
     <div className="space-y-2">
-      <input value={u} onChange={(e) => setU(e.target.value)} placeholder="username" className="border p-1 rounded w-full text-xs" />
-      <input value={p} onChange={(e) => setP(e.target.value)} placeholder="password" type="password" className="border p-1 rounded w-full text-xs" />
+      <input value={u} onChange={(e) => handleUsernameChange(e.target.value)} placeholder="username" className="border p-1 rounded w-full text-xs" />
+      <input value={p} onChange={(e) => handlePasswordChange(e.target.value)} placeholder="password" type="password" className="border p-1 rounded w-full text-xs" />
       <div className="flex gap-2">
         <button onClick={() => onLogin({ username: u.trim(), password: p })} className="px-2 py-1 bg-white border rounded text-green-700 text-xs">
           Login
@@ -181,6 +183,7 @@ function PvaraPhase2() {
   const [selectedApps, setSelectedApps] = useState([]);
   const [evaluationModal, setEvaluationModal] = useState({ open: false, candidate: null });
   const [selectedJobForAI, setSelectedJobForAI] = useState(null);
+  const handleSelectJobForAI = useCallback((value) => setSelectedJobForAI(value), []);
 
   // Memoized handlers to prevent input focus loss
   const handleAppFormChange = useCallback((field, value) => {
@@ -189,6 +192,14 @@ function PvaraPhase2() {
 
   const handleJobFormChange = useCallback((field, value) => {
     setJobForm((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleSalaryChange = useCallback((field, value) => {
+    setJobForm((prev) => ({ ...prev, salary: { ...prev.salary, [field]: value } }));
+  }, []);
+
+  const handleHrSearchChange = useCallback((value) => {
+    setHrSearch(value);
   }, []);
 
 
@@ -517,7 +528,7 @@ function PvaraPhase2() {
             <div className="text-sm text-gray-500">Enterprise Recruitment • PVARA</div>
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <input placeholder="Search applications..." value={hrSearch} onChange={(e) => setHrSearch(e.target.value)} className="border p-2 rounded w-full sm:w-64" />
+            <input placeholder="Search applications..." value={hrSearch} onChange={(e) => handleHrSearchChange(e.target.value)} className="border p-2 rounded w-full sm:w-64" />
             <div className="text-sm text-gray-600 whitespace-nowrap">{(state.applications || []).length} applications</div>
           </div>
         </div>
@@ -644,8 +655,8 @@ function PvaraPhase2() {
               <input value={jobForm.employmentType} onChange={(e) => handleJobFormChange('employmentType', e.target.value)} placeholder="Employment Type" className="border p-2 rounded w-full" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input type="number" value={jobForm.salary.min} onChange={(e) => setJobForm({ ...jobForm, salary: { ...jobForm.salary, min: parseInt(e.target.value) || 0 } })} placeholder="Salary Min" className="border p-2 rounded w-full" />
-              <input type="number" value={jobForm.salary.max} onChange={(e) => setJobForm({ ...jobForm, salary: { ...jobForm.salary, max: parseInt(e.target.value) || 0 } })} placeholder="Salary Max" className="border p-2 rounded w-full" />
+              <input type="number" value={jobForm.salary.min} onChange={(e) => handleSalaryChange('min', parseInt(e.target.value) || 0)} placeholder="Salary Min" className="border p-2 rounded w-full" />
+              <input type="number" value={jobForm.salary.max} onChange={(e) => handleSalaryChange('max', parseInt(e.target.value) || 0)} placeholder="Salary Max" className="border p-2 rounded w-full" />
             </div>
             <div className="flex gap-2">
                 <button className="px-3 py-2 bg-green-700 text-white rounded disabled:opacity-50" disabled={jobErrs.length > 0}>{editingJobId ? 'Update Job' : 'Create Job'}</button>
@@ -852,7 +863,7 @@ function PvaraPhase2() {
             <label className="block font-semibold mb-2">Select Job Position</label>
             <select
               value={selectedJobForAI || ''}
-              onChange={(e) => setSelectedJobForAI(e.target.value)}
+              onChange={(e) => handleSelectJobForAI(e.target.value)}
               className="border p-2 rounded w-full"
             >
               <option value="">-- Choose a job --</option>
@@ -899,7 +910,12 @@ function PvaraPhase2() {
   }
 
   // Advanced Features View Functions
-  const EmailNotificationsView = () => <EmailNotificationsPanel state={state} onSendEmail={(recipient, template) => addToast(`Email sent to ${recipient} with ${template} template`, { type: 'success' })} />;
+  const EmailNotificationsView = () => (
+    <EmailNotificationsPanel
+      applications={state.applications || []}
+      onSendEmail={(recipient, template) => addToast(`Email sent to ${recipient} with ${template} template`, { type: 'success' })}
+    />
+  );
   
   const InterviewSchedulingView = () => <InterviewSchedulingPanel state={state} onSchedule={(candidate, type, date) => addToast(`Interview scheduled for ${candidate} on ${date}`, { type: 'success' })} />;
   
