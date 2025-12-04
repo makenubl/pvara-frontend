@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, memo } from "react";
 import logo from "./logo.png";
 import "./index.css";
 import { ToastProvider, useToast } from "./ToastContext";
@@ -158,6 +158,25 @@ function PvaraPhase2() {
     setHrSearch(value);
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const createJob = useCallback((e) => {
+    e?.preventDefault();
+    if (editingJobId) {
+      const updated = { ...normalizeJobFormForSave(jobForm), id: editingJobId };
+      setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j.id === editingJobId ? updated : j)) }));
+      audit("update-job", { jobId: editingJobId, title: updated.title });
+      addToast("Job updated", { type: "success" });
+      setEditingJobId(null);
+      setJobForm(emptyJobForm);
+      return;
+    }
+
+    const j = { ...normalizeJobFormForSave(jobForm), id: `job-${Date.now()}`, createdAt: new Date().toISOString() };
+    setState((s) => ({ ...s, jobs: [j, ...(s.jobs || [])] }));
+    audit("create-job", { jobId: j.id, title: j.title });
+    setJobForm(emptyJobForm);
+    addToast("Job created (local)", { type: "success" });
+  }, [editingJobId, jobForm, addToast]);
 
   function audit(action, details) {
     // CORRECTED: use a template literal so JS parses it
@@ -179,30 +198,12 @@ function PvaraPhase2() {
     };
   }
 
-  function createJob(e) {
-    e?.preventDefault();
-    if (editingJobId) {
-      const updated = { ...normalizeJobFormForSave(jobForm), id: editingJobId };
-      setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j.id === editingJobId ? updated : j)) }));
-      audit("update-job", { jobId: editingJobId, title: updated.title });
-      addToast("Job updated", { type: "success" });
-      setEditingJobId(null);
-      setJobForm(emptyJobForm);
-      return;
-    }
-
-    const j = { ...normalizeJobFormForSave(jobForm), id: `job-${Date.now()}`, createdAt: new Date().toISOString() };
-    setState((s) => ({ ...s, jobs: [j, ...(s.jobs || [])] }));
-    audit("create-job", { jobId: j.id, title: j.title });
-    setJobForm(emptyJobForm);
-    addToast("Job created (local)", { type: "success" });
-  }
-
-  function deleteJob(jobId) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const deleteJob = useCallback((jobId) => {
     setState((s) => ({ ...s, jobs: (s.jobs || []).filter((j) => j.id !== jobId) }));
     audit("delete-job", { jobId });
     addToast("Job deleted", { type: "info" });
-  }
+  }, [addToast]);
 
   function submitApplication(e) {
     e?.preventDefault();
@@ -251,6 +252,34 @@ function PvaraPhase2() {
     setAppForm({ jobId: state.jobs[0]?.id || "", name: "", email: "", cnic: "", phone: "", degree: "", experienceYears: "", address: "", linkedin: "" });
     if (fileRef.current) fileRef.current.value = null;
     addToast("Application submitted: " + app.status, { type: "success" });
+    
+    // Send confirmation email
+    const emailData = {
+      to: appForm.email,
+      templateType: "APPLICATION_RECEIVED",
+      data: {
+        candidateName: appForm.name,
+        jobTitle: job.title,
+      },
+    };
+    
+    const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
+    fetch(`${apiUrl}/api/send-email-template`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(emailData),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          console.log(`📧 Confirmation email sent to ${appForm.email}`);
+        } else {
+          console.log("📧 Email service unavailable (backend not running)");
+        }
+      })
+      .catch((err) => {
+        console.log("📧 Email service unavailable:", err.message);
+      });
   }
 
   // Simple job form validator (inline validations)
@@ -275,6 +304,43 @@ function PvaraPhase2() {
     audit("change-app-status", { appId, status, note });
     addToast("Application status updated: " + status, { type: status === 'rejected' ? 'error' : 'success' });
     setDrawer((d) => (d.open && d.app && d.app.id === appId ? { ...d, app: { ...d.app, status } } : d));
+    
+    // Send status update email
+    const app = (state.applications || []).find((a) => a.id === appId);
+    if (app && app.applicant && app.applicant.email) {
+      const emailTemplates = {
+        shortlisted: "APPLICATION_SHORTLISTED",
+        interviewed: "INTERVIEW_SCHEDULED",
+        rejected: "REJECTION",
+      };
+      
+      const templateType = emailTemplates[status];
+      if (templateType) {
+        const job = (state.jobs || []).find((j) => j.id === app.jobId);
+        const emailData = {
+          to: app.applicant.email,
+          templateType,
+          data: {
+            candidateName: app.applicant.name,
+            jobTitle: job?.title || "Position",
+          },
+        };
+        
+        const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
+        fetch(`${apiUrl}/api/send-email-template`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(emailData),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success) {
+              console.log(`📧 Status email sent to ${app.applicant.email}`);
+            }
+          })
+          .catch((err) => console.log("📧 Email unavailable:", err.message));
+      }
+    }
   }
 
   // openDrawer accepts either an application object or an id and always resolves latest state
@@ -397,6 +463,9 @@ function PvaraPhase2() {
           </button>
           <button onClick={() => { setView("apply"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "apply" ? "bg-white/10" : ""}`}>
             Apply
+          </button>
+          <button onClick={() => { setView("my-apps"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "my-apps" ? "bg-white/10" : ""}`}>
+            My Applications
           </button>
           {auth.hasRole('admin') && (
             <button onClick={() => { setView("admin"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "admin" ? "bg-white/10" : ""}`}>
@@ -545,52 +614,14 @@ function PvaraPhase2() {
         <Header title="Apply for Job" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white p-4 md:p-6 rounded shadow">
-            <form onSubmit={submitApplication} className="space-y-3">
-              <select value={appForm.jobId} onChange={(e) => handleAppFormChange('jobId', e.target.value)} className="border p-2 rounded w-full text-sm md:text-base">
-                {(state.jobs || []).map((j) => (
-                  <option key={j.id} value={j.id}>
-                    {j.title} — {j.department}
-                  </option>
-                ))}
-              </select>
-
-              <input className="border p-2 rounded w-full text-sm md:text-base" placeholder="Full name" value={appForm.name} onChange={(e) => handleAppFormChange('name', e.target.value)} required />
-              <input className="border p-2 rounded w-full text-sm md:text-base" placeholder="Email" type="email" value={appForm.email} onChange={(e) => handleAppFormChange('email', e.target.value)} required />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input value={appForm.cnic} onChange={(e) => handleAppFormChange('cnic', e.target.value)} placeholder="CNIC" className="border p-2 rounded w-full" />
-                <input value={appForm.phone} onChange={(e) => handleAppFormChange('phone', e.target.value)} placeholder="Phone" className="border p-2 rounded w-full" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <input value={appForm.degree} onChange={(e) => handleAppFormChange('degree', e.target.value)} placeholder="Degree" className="border p-2 rounded w-full" />
-                <input value={appForm.experienceYears} onChange={(e) => handleAppFormChange('experienceYears', e.target.value)} placeholder="Years" type="number" className="border p-2 rounded w-full" />
-              </div>
-
-              <input value={appForm.linkedin} onChange={(e) => handleAppFormChange('linkedin', e.target.value)} placeholder="LinkedIn profile (optional)" className="border p-2 rounded w-full" />
-              <textarea value={appForm.address} onChange={(e) => handleAppFormChange('address', e.target.value)} placeholder="Address" className="border p-2 rounded w-full" />
-
-              <div>
-                <label className="block mb-1">Upload (CV / other)</label>
-                <input ref={fileRef} type="file" multiple />
-              </div>
-
-              <div className="flex gap-2">
-                <button type="submit" className="px-4 py-2 bg-green-700 text-white rounded">
-                  Submit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAppForm({ jobId: state.jobs[0]?.id || "", name: "", email: "", cnic: "", phone: "", degree: "", experienceYears: "", address: "", linkedin: "" });
-                    if (fileRef.current) fileRef.current.value = null;
-                  }}
-                  className="px-3 py-2 border rounded"
-                >
-                  Reset
-                </button>
-              </div>
-            </form>
+            <ApplicationFormComponent 
+              appForm={appForm}
+              setAppForm={setAppForm}
+              submitApplication={submitApplication}
+              fileRef={fileRef}
+              state={state}
+              handleAppFormChange={handleAppFormChange}
+            />
           </div>
 
           <div className="bg-white p-4 rounded shadow">
@@ -607,71 +638,282 @@ function PvaraPhase2() {
     );
   }
 
+  const JobFormComponent = memo(({ jobForm, editingJobId, validateJobForm, handleJobFormChange, handleSalaryChange, createJob, setJobForm, setEditingJobId }) => {
+    // Use local state to track input values independently
+    const [localForm, setLocalForm] = useState(jobForm);
+
+    // Sync local state when jobForm prop changes (e.g., when editing)
+    useEffect(() => {
+      setLocalForm(jobForm);
+    }, [editingJobId]);
+
+    const handleLocalChange = useCallback((field, value) => {
+      setLocalForm(prev => ({ ...prev, [field]: value }));
+      // Also update parent state for validation
+      handleJobFormChange(field, value);
+    }, [handleJobFormChange]);
+
+    const handleLocalSalaryChange = useCallback((field, value) => {
+      setLocalForm(prev => ({ ...prev, salary: { ...prev.salary, [field]: value } }));
+      handleSalaryChange(field, value);
+    }, [handleSalaryChange]);
+
+    const jobErrs = validateJobForm(localForm);
+    return (
+      <form onSubmit={createJob} className="space-y-2">
+        <input 
+          value={localForm.title} 
+          onChange={(e) => handleLocalChange('title', e.target.value)} 
+          placeholder="Title" 
+          className="border p-2 rounded w-full" 
+          autoComplete="off"
+        />
+        <input 
+          value={localForm.department} 
+          onChange={(e) => handleLocalChange('department', e.target.value)} 
+          placeholder="Department" 
+          className="border p-2 rounded w-full" 
+          autoComplete="off"
+        />
+        <textarea 
+          value={localForm.description} 
+          onChange={(e) => handleLocalChange('description', e.target.value)} 
+          placeholder="Description" 
+          className="border p-2 rounded w-full" 
+          autoComplete="off"
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <input type="number" value={localForm.openings ?? ""} onChange={(e) => handleLocalChange('openings', e.target.value)} placeholder="Openings" className="border p-2 rounded w-full" />
+          <input value={localForm.employmentType} onChange={(e) => handleLocalChange('employmentType', e.target.value)} placeholder="Employment Type" className="border p-2 rounded w-full" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <input type="number" value={localForm.salary?.min ?? ""} onChange={(e) => handleLocalSalaryChange('min', e.target.value)} placeholder="Salary Min" className="border p-2 rounded w-full" />
+          <input type="number" value={localForm.salary?.max ?? ""} onChange={(e) => handleLocalSalaryChange('max', e.target.value)} placeholder="Salary Max" className="border p-2 rounded w-full" />
+        </div>
+        {jobErrs.length > 0 && (
+          <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+            {jobErrs.map((e, i) => <div key={i}>• {e}</div>)}
+          </div>
+        )}
+        <div className="flex gap-2">
+            <button className="px-3 py-2 bg-green-700 text-white rounded disabled:opacity-50" disabled={jobErrs.length > 0}>{editingJobId ? 'Update Job' : 'Create Job'}</button>
+            <button
+              type="button"
+              onClick={() => {
+                setLocalForm(emptyJobForm);
+                setJobForm(emptyJobForm);
+              }}
+              className="px-3 py-2 border rounded"
+            >
+              Reset
+            </button>
+            {editingJobId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingJobId(null);
+                  setLocalForm(emptyJobForm);
+                  setJobForm(emptyJobForm);
+                }}
+                className="px-3 py-2 border rounded text-sm"
+              >
+                Cancel Edit
+              </button>
+            )}
+        </div>
+      </form>
+    );
+  });
+  JobFormComponent.displayName = 'JobFormComponent';
+
+  const ApplicationFormComponent = memo(({ appForm, setAppForm, submitApplication, fileRef, state, handleAppFormChange }) => {
+    // Use local state to track input values independently
+    const [localForm, setLocalForm] = useState(appForm);
+
+    useEffect(() => {
+      setLocalForm(appForm);
+    }, []);
+
+    const handleLocalChange = useCallback((field, value) => {
+      setLocalForm(prev => ({ ...prev, [field]: value }));
+      handleAppFormChange(field, value);
+    }, [handleAppFormChange]);
+
+    return (
+      <form onSubmit={submitApplication} className="space-y-3">
+        <select value={localForm.jobId} onChange={(e) => handleLocalChange('jobId', e.target.value)} className="border p-2 rounded w-full text-sm md:text-base">
+          {(state.jobs || []).map((j) => (
+            <option key={j.id} value={j.id}>
+              {j.title} — {j.department}
+            </option>
+          ))}
+        </select>
+
+        <input className="border p-2 rounded w-full text-sm md:text-base" placeholder="Full name" value={localForm.name} onChange={(e) => handleLocalChange('name', e.target.value)} required />
+        <input className="border p-2 rounded w-full text-sm md:text-base" placeholder="Email" type="email" value={localForm.email} onChange={(e) => handleLocalChange('email', e.target.value)} required />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <input value={localForm.cnic} onChange={(e) => handleLocalChange('cnic', e.target.value)} placeholder="CNIC" className="border p-2 rounded w-full" />
+          <input value={localForm.phone} onChange={(e) => handleLocalChange('phone', e.target.value)} placeholder="Phone" className="border p-2 rounded w-full" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <input value={localForm.degree} onChange={(e) => handleLocalChange('degree', e.target.value)} placeholder="Degree" className="border p-2 rounded w-full" />
+          <input value={localForm.experienceYears} onChange={(e) => handleLocalChange('experienceYears', e.target.value)} placeholder="Years" type="number" className="border p-2 rounded w-full" />
+        </div>
+
+        <input value={localForm.linkedin} onChange={(e) => handleLocalChange('linkedin', e.target.value)} placeholder="LinkedIn profile (optional)" className="border p-2 rounded w-full" />
+        <textarea value={localForm.address} onChange={(e) => handleLocalChange('address', e.target.value)} placeholder="Address" className="border p-2 rounded w-full" />
+
+        <div>
+          <label className="block mb-1">Upload (CV / other)</label>
+          <input ref={fileRef} type="file" multiple />
+        </div>
+
+        <div className="flex gap-2">
+          <button type="submit" className="px-4 py-2 bg-green-700 text-white rounded">
+            Submit
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setLocalForm({
+                jobId: (state.jobs && state.jobs[0]) ? state.jobs[0].id : "",
+                name: "",
+                email: "",
+                cnic: "",
+                phone: "",
+                degree: "",
+                experienceYears: "",
+                address: "",
+                linkedin: "",
+              });
+              setAppForm({
+                jobId: (state.jobs && state.jobs[0]) ? state.jobs[0].id : "",
+                name: "",
+                email: "",
+                cnic: "",
+                phone: "",
+                degree: "",
+                experienceYears: "",
+                address: "",
+                linkedin: "",
+              });
+              if (fileRef.current) fileRef.current.value = null;
+            }}
+            className="px-3 py-2 border rounded"
+          >
+            Reset
+          </button>
+        </div>
+      </form>
+    );
+  });
+  ApplicationFormComponent.displayName = 'ApplicationFormComponent';
+
+  function CandidateView() {
+    // In a demo without real user accounts, show all applications
+    // In production, filter by user.email or user.id
+    const myApplications = (state.applications || []);
+
+    const getJobTitle = (jobId) => {
+      const job = (state.jobs || []).find((j) => j.id === jobId);
+      return job ? job.title : "Unknown Position";
+    };
+
+    const getStatusColor = (status) => {
+      const colors = {
+        "submitted": "bg-blue-50 text-blue-700 border-blue-200",
+        "manual-review": "bg-yellow-50 text-yellow-700 border-yellow-200",
+        "screening": "bg-purple-50 text-purple-700 border-purple-200",
+        "interviewed": "bg-orange-50 text-orange-700 border-orange-200",
+        "shortlisted": "bg-green-50 text-green-700 border-green-200",
+        "hired": "bg-emerald-50 text-emerald-700 border-emerald-200",
+        "rejected": "bg-red-50 text-red-700 border-red-200",
+      };
+      return colors[status] || "bg-gray-50 text-gray-700 border-gray-200";
+    };
+
+    return (
+      <div>
+        <Header title="My Applications" />
+        <div className="bg-white p-4 rounded shadow">
+          {myApplications.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-500 mb-4">No applications yet</div>
+              <button 
+                onClick={() => setView("apply")}
+                className="px-4 py-2 bg-green-700 text-white rounded"
+              >
+                Apply Now
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600">
+                Total Applications: <strong>{myApplications.length}</strong>
+              </div>
+              {myApplications.map((app) => (
+                <div key={app.id} className="border rounded-lg p-4 hover:shadow-md transition">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="font-semibold text-lg mb-2">
+                        {getJobTitle(app.jobId)}
+                      </div>
+                      <div className="text-sm text-gray-600 space-y-1 mb-3">
+                        <div>
+                          <strong>Applicant:</strong> {app.applicant.name}
+                        </div>
+                        <div>
+                          <strong>Email:</strong> {app.applicant.email}
+                        </div>
+                        <div>
+                          <strong>Applied:</strong> {new Date(app.createdAt).toLocaleDateString()}
+                        </div>
+                        <div>
+                          <strong>Application ID:</strong> {app.id}
+                        </div>
+                        {app.screeningErrors && app.screeningErrors.length > 0 && (
+                          <div className="mt-2">
+                            <strong className="text-red-600">Issues:</strong>
+                            <ul className="list-disc list-inside text-red-600">
+                              {app.screeningErrors.map((err, i) => (
+                                <li key={i} className="text-xs">{err}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className={`px-3 py-1 rounded border text-sm font-medium whitespace-nowrap ml-4 ${getStatusColor(app.status)}`}>
+                      {app.status.replace(/-/g, " ").toUpperCase()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   function AdminView() {
     if (!user || user.role !== "admin") return <div>Access denied</div>;
-    const jobErrs = validateJobForm(jobForm);
     return (
       <div>
         <Header title="Admin - Create Job" />
         <div className="bg-white p-4 rounded shadow">
-          <form onSubmit={createJob} className="space-y-2">
-            <input 
-              value={jobForm.title} 
-              onChange={(e) => handleJobFormChange('title', e.target.value)} 
-              placeholder="Title" 
-              className="border p-2 rounded w-full" 
-              autoComplete="off"
-            />
-            <input 
-              value={jobForm.department} 
-              onChange={(e) => handleJobFormChange('department', e.target.value)} 
-              placeholder="Department" 
-              className="border p-2 rounded w-full" 
-              autoComplete="off"
-            />
-            <textarea 
-              value={jobForm.description} 
-              onChange={(e) => handleJobFormChange('description', e.target.value)} 
-              placeholder="Description" 
-              className="border p-2 rounded w-full" 
-              autoComplete="off"
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <input type="number" value={jobForm.openings ?? ""} onChange={(e) => handleJobFormChange('openings', e.target.value)} placeholder="Openings" className="border p-2 rounded w-full" />
-              <input value={jobForm.employmentType} onChange={(e) => handleJobFormChange('employmentType', e.target.value)} placeholder="Employment Type" className="border p-2 rounded w-full" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <input type="number" value={jobForm.salary?.min ?? ""} onChange={(e) => handleSalaryChange('min', e.target.value)} placeholder="Salary Min" className="border p-2 rounded w-full" />
-              <input type="number" value={jobForm.salary?.max ?? ""} onChange={(e) => handleSalaryChange('max', e.target.value)} placeholder="Salary Max" className="border p-2 rounded w-full" />
-            </div>
-            {jobErrs.length > 0 && (
-              <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
-                {jobErrs.map((e, i) => <div key={i}>• {e}</div>)}
-              </div>
-            )}
-            <div className="flex gap-2">
-                <button className="px-3 py-2 bg-green-700 text-white rounded disabled:opacity-50" disabled={jobErrs.length > 0}>{editingJobId ? 'Update Job' : 'Create Job'}</button>
-                <button
-                  type="button"
-                  onClick={() => setJobForm(emptyJobForm)}
-                  className="px-3 py-2 border rounded"
-                >
-                  Reset
-                </button>
-                {editingJobId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingJobId(null);
-                      setJobForm(emptyJobForm);
-                    }}
-                    className="px-3 py-2 border rounded text-sm"
-                  >
-                    Cancel Edit
-                  </button>
-                )}
-            </div>
-          </form>
+          <JobFormComponent 
+            jobForm={jobForm}
+            editingJobId={editingJobId}
+            validateJobForm={validateJobForm}
+            handleJobFormChange={handleJobFormChange}
+            handleSalaryChange={handleSalaryChange}
+            createJob={createJob}
+            setJobForm={setJobForm}
+            setEditingJobId={setEditingJobId}
+          />
 
           <div className="mt-4">
             <h4 className="font-semibold">Existing Jobs</h4>
@@ -716,56 +958,78 @@ function PvaraPhase2() {
 
   function HRView() {
     if (!user || (user.role !== "hr" && user.role !== "admin" && user.role !== "recruiter")) return <div>Access denied</div>;
-    const apps = (state.applications || []).filter((a) => (a.applicant.name || "").toLowerCase().includes(hrSearch.toLowerCase()) || (a.applicant.email || "").toLowerCase().includes(hrSearch.toLowerCase()));
+    const apps = (state.applications || []).filter((a) => 
+      (a.applicant.name || "").toLowerCase().includes(hrSearch.toLowerCase()) || 
+      (a.applicant.email || "").toLowerCase().includes(hrSearch.toLowerCase())
+    );
+
     return (
       <div>
         <Header title="HR Review" />
-        <div className="space-y-3">
-          {apps.map((a) => (
-            <div key={a.id} className="p-3 border rounded bg-gray-50">
-              <div className="flex justify-between">
-                <div>
-                  <div className="font-semibold">{a.applicant.name}</div>
-                  <div className="text-xs text-gray-500">{a.applicant.email}</div>
+        <div className="bg-white p-4 rounded shadow">
+          {apps.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-500">
+                {hrSearch ? `No applications match "${hrSearch}"` : "No applications yet"}
+              </div>
+              {!hrSearch && (state.applications || []).length > 0 && (
+                <div className="text-xs text-gray-400 mt-2">
+                  Total in system: {(state.applications || []).length}
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => openDrawer(a)} className="px-2 py-1 border rounded">
-                    View
-                  </button>
-                  <button
-                    onClick={() => {
-                      toggleSelectApp(a.id);
-                    }}
-                    className="px-2 py-1 border rounded"
-                  >
-                    {selectedApps.includes(a.id) ? "Unselect" : "Select"}
-                  </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {apps.map((a) => (
+                <div key={a.id} className="p-3 border rounded bg-gray-50 hover:shadow transition">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="font-semibold">{a.applicant.name}</div>
+                      <div className="text-xs text-gray-500">{a.applicant.email}</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        Applied: {new Date(a.createdAt).toLocaleDateString()} | Status: <span className="font-medium">{a.status}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 ml-4">
+                      <button onClick={() => openDrawer(a)} className="px-2 py-1 border rounded text-sm hover:bg-gray-100">
+                        View
+                      </button>
+                      <button
+                        onClick={() => toggleSelectApp(a.id)}
+                        className={`px-2 py-1 rounded text-sm ${selectedApps.includes(a.id) ? 'bg-green-700 text-white border-green-700' : 'border'}`}
+                      >
+                        {selectedApps.includes(a.id) ? "✓ Selected" : "Select"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              ))}
+              <div className="mt-4 flex gap-2 pt-3 border-t">
+                <button
+                  onClick={() => {
+                    if (!selectedApps.length) {
+                      addToast("Select applicants first", { type: 'error' });
+                      return;
+                    }
+                    const jobId = state.applications.find((x) => x.id === selectedApps[0])?.jobId;
+                    createShortlist(jobId, selectedApps);
+                    setSelectedApps([]);
+                    addToast("Shortlist created", { type: 'success' });
+                  }}
+                  className="px-3 py-2 bg-green-700 text-white rounded hover:bg-green-800 disabled:opacity-50"
+                  disabled={selectedApps.length === 0}
+                >
+                  Create Shortlist ({selectedApps.length} selected)
+                </button>
+                <button
+                  onClick={() => setSelectedApps([])}
+                  className="px-3 py-2 border rounded hover:bg-gray-100"
+                >
+                  Clear Selection
+                </button>
               </div>
             </div>
-          ))}
-          <div className="mt-2 flex gap-2">
-            <button
-              onClick={() => {
-                if (!selectedApps.length) return addToast("Select applicants first", { type: 'error' });
-                const jobId = state.applications.find((x) => x.id === selectedApps[0])?.jobId;
-                createShortlist(jobId, selectedApps);
-                setSelectedApps([]);
-                addToast("Shortlist created", { type: 'success' });
-              }}
-              className="px-3 py-2 bg-green-700 text-white rounded"
-            >
-              Create Shortlist from Selected
-            </button>
-            <button
-              onClick={() => {
-                setSelectedApps([]);
-              }}
-              className="px-3 py-2 border rounded"
-            >
-              Clear Selection
-            </button>
-          </div>
+          )}
         </div>
       </div>
     );
@@ -935,6 +1199,7 @@ function PvaraPhase2() {
       <div className="flex-1 p-4 md:p-6 lg:ml-0 pt-16 lg:pt-6">
         {view === "dashboard" && <DashboardView />}
         {view === "apply" && <ApplyView />}
+        {view === "my-apps" && <CandidateView />}
         {view === "admin" && <AdminView />}
         {view === "hr" && <HRView />}
         {view === "ai-screening" && <AIScreeningView />}
