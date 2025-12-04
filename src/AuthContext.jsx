@@ -1,5 +1,5 @@
 // src/AuthContext.jsx
-import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
 const AuthCtx = createContext();
 
@@ -21,29 +21,27 @@ export function AuthProvider({ children }) {
     localStorage.setItem("pvara_user", JSON.stringify(user));
   }, [user]);
 
-  const login = useCallback(({ username, password }) => {
+  function login({ username, password }) {
     const found = demoUsers.find(u => u.username === username && u.password === password);
     if (!found) return { ok: false, message: "Invalid credentials" };
     const payload = { username: found.username, role: found.role, name: found.name };
     setUser(payload);
     return { ok: true, user: payload };
-  }, []);
+  }
 
-  const logout = useCallback(() => {
+  function logout() {
     setUser(null);
     localStorage.removeItem("pvara_user");
-  }, []);
+  }
 
-  const hasRole = useCallback((roles) => {
+  const hasRole = (roles) => {
     if (!user) return false;
     if (typeof roles === "string") roles = [roles];
     return roles.includes(user.role);
-  }, [user]);
-
-  const value = useMemo(() => ({ user, login, logout, hasRole }), [user, login, logout, hasRole]);
+  };
 
   return (
-    <AuthCtx.Provider value={value}>
+    <AuthCtx.Provider value={{ user, login, logout, hasRole }}>
       {children}
     </AuthCtx.Provider>
   );

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const ToastCtx = createContext();
 
@@ -15,21 +15,19 @@ export function ToastProvider({ children }) {
     return () => timers.forEach((t) => clearTimeout(t));
   }, [toasts]);
 
-  const addToast = useCallback((message, opts = {}) => {
+  function addToast(message, opts = {}) {
     const id = `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const toast = { id, message, type: opts.type || 'info', duration: opts.duration || 4000 };
     setToasts((s) => [toast, ...s]);
     return id;
-  }, []);
+  }
 
-  const removeToast = useCallback((id) => {
+  function removeToast(id) {
     setToasts((s) => s.filter((t) => t.id !== id));
-  }, []);
-
-  const value = useMemo(() => ({ toasts, addToast, removeToast }), [toasts, addToast, removeToast]);
+  }
 
   return (
-    <ToastCtx.Provider value={value}>
+    <ToastCtx.Provider value={{ toasts, addToast, removeToast }}>
       {children}
       <div className="fixed top-4 right-4 z-50 space-y-2">
         {toasts.map((t) => (

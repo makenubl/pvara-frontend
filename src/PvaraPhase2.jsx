@@ -121,7 +121,6 @@ function PvaraPhase2() {
   const [view, setView] = useState("dashboard");
   const [editingJobId, setEditingJobId] = useState(null);
   const [jobForm, setJobForm] = useState(emptyJobForm);
-  const jobTitleRef = useRef(null);
   const [appForm, setAppForm] = useState({
     jobId: (state.jobs && state.jobs[0]) ? state.jobs[0].id : "",
     name: "",
@@ -616,14 +615,27 @@ function PvaraPhase2() {
         <Header title="Admin - Create Job" />
         <div className="bg-white p-4 rounded shadow">
           <form onSubmit={createJob} className="space-y-2">
-            {jobErrs.length > 0 && (
-              <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
-                {jobErrs.map((e, i) => <div key={i}>• {e}</div>)}
-              </div>
-            )}
-            <input ref={jobTitleRef} value={jobForm.title} onChange={(e) => handleJobFormChange('title', e.target.value)} placeholder="Title" className="border p-2 rounded w-full" />
-            <input value={jobForm.department} onChange={(e) => handleJobFormChange('department', e.target.value)} placeholder="Department" className="border p-2 rounded w-full" />
-            <textarea value={jobForm.description} onChange={(e) => handleJobFormChange('description', e.target.value)} placeholder="Description" className="border p-2 rounded w-full" />
+            <input 
+              value={jobForm.title} 
+              onChange={(e) => handleJobFormChange('title', e.target.value)} 
+              placeholder="Title" 
+              className="border p-2 rounded w-full" 
+              autoComplete="off"
+            />
+            <input 
+              value={jobForm.department} 
+              onChange={(e) => handleJobFormChange('department', e.target.value)} 
+              placeholder="Department" 
+              className="border p-2 rounded w-full" 
+              autoComplete="off"
+            />
+            <textarea 
+              value={jobForm.description} 
+              onChange={(e) => handleJobFormChange('description', e.target.value)} 
+              placeholder="Description" 
+              className="border p-2 rounded w-full" 
+              autoComplete="off"
+            />
             <div className="grid grid-cols-2 gap-2">
               <input type="number" value={jobForm.openings ?? ""} onChange={(e) => handleJobFormChange('openings', e.target.value)} placeholder="Openings" className="border p-2 rounded w-full" />
               <input value={jobForm.employmentType} onChange={(e) => handleJobFormChange('employmentType', e.target.value)} placeholder="Employment Type" className="border p-2 rounded w-full" />
@@ -632,6 +644,11 @@ function PvaraPhase2() {
               <input type="number" value={jobForm.salary?.min ?? ""} onChange={(e) => handleSalaryChange('min', e.target.value)} placeholder="Salary Min" className="border p-2 rounded w-full" />
               <input type="number" value={jobForm.salary?.max ?? ""} onChange={(e) => handleSalaryChange('max', e.target.value)} placeholder="Salary Max" className="border p-2 rounded w-full" />
             </div>
+            {jobErrs.length > 0 && (
+              <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+                {jobErrs.map((e, i) => <div key={i}>• {e}</div>)}
+              </div>
+            )}
             <div className="flex gap-2">
                 <button className="px-3 py-2 bg-green-700 text-white rounded disabled:opacity-50" disabled={jobErrs.length > 0}>{editingJobId ? 'Update Job' : 'Create Job'}</button>
                 <button
