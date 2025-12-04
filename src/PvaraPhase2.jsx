@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState, createContext, useContext, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import logo from "./logo.png";
 import "./index.css";
 import { ToastProvider, useToast } from "./ToastContext";
+import { AuthProvider, useAuth } from "./AuthContext";
 import { AnalyticsDashboard, AIScreeningPanel, InterviewEvaluationForm } from "./AnalyticsDashboard";
 import {
   EmailNotificationsPanel,
@@ -11,52 +12,6 @@ import {
   AnalyticsReportsPanel,
   SettingsPanel,
 } from "./AdvancedFeaturesUI";
-
-// ---------- Simple Auth (demo RBAC) ----------
-const AuthCtx = createContext();
-function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("pvara_user")) || null;
-    } catch (e) {
-      return null;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      if (user) localStorage.setItem("pvara_user", JSON.stringify(user));
-      else localStorage.removeItem("pvara_user");
-    } catch (e) {}
-  }, [user]);
-
-  function login({ username, password }) {
-    if (!username || !password) return { ok: false, message: "invalid" };
-    const role =
-      username === "admin" ? "admin" : username === "hr" ? "hr" : username === "recruit" ? "recruiter" : "viewer";
-    const payload = { username, role, name: username };
-    setUser(payload);
-    return { ok: true, user: payload };
-  }
-
-  function logout() {
-    setUser(null);
-    try {
-      localStorage.removeItem("pvara_user");
-    } catch (e) {}
-  }
-
-  function hasRole(roles) {
-    if (!user) return false;
-    if (typeof roles === "string") roles = [roles];
-    return roles.includes(user.role);
-  }
-
-  return <AuthCtx.Provider value={{ user, login, logout, hasRole }}>{children}</AuthCtx.Provider>;
-}
-function useAuth() {
-  return useContext(AuthCtx);
-}
 
 // ---------- Storage utilities ----------
 const STORAGE_KEY = "pvara_v3";
@@ -143,9 +98,20 @@ function defaultState() {
 }
 
 // ---------- App ----------
+const emptyJobForm = {
+  title: "",
+  department: "",
+  grade: "",
+  description: "",
+  locations: [],
+  openings: "1",
+  employmentType: "Full-time",
+  salary: { min: "", max: "" },
+  fields: {},
+};
+
 function PvaraPhase2() {
-  const persisted = loadState();
-  const [state, setState] = useState(persisted || defaultState());
+  const [state, setState] = useState(() => loadState() || defaultState());
   useEffect(() => saveState(state), [state]);
 
   const auth = useAuth();
@@ -154,17 +120,8 @@ function PvaraPhase2() {
 
   const [view, setView] = useState("dashboard");
   const [editingJobId, setEditingJobId] = useState(null);
-  const [jobForm, setJobForm] = useState({
-    title: "",
-    department: "",
-    grade: "",
-    description: "",
-    locations: [],
-    openings: 1,
-    employmentType: "Full-time",
-    salary: { min: 0, max: 0 },
-    fields: {},
-  });
+  const [jobForm, setJobForm] = useState(emptyJobForm);
+  const jobTitleRef = useRef(null);
   const [appForm, setAppForm] = useState({
     jobId: (state.jobs && state.jobs[0]) ? state.jobs[0].id : "",
     name: "",
@@ -209,22 +166,36 @@ function PvaraPhase2() {
     setState((s) => ({ ...s, audit: [rec, ...(s.audit || [])] }));
   }
 
+  function normalizeJobFormForSave(form) {
+    const openingsNum = form.openings === "" ? null : Number(form.openings);
+    const salaryMinNum = form.salary?.min === "" ? null : Number(form.salary?.min);
+    const salaryMaxNum = form.salary?.max === "" ? null : Number(form.salary?.max);
+    return {
+      ...form,
+      openings: openingsNum ?? 0,
+      salary: {
+        min: salaryMinNum ?? 0,
+        max: salaryMaxNum ?? 0,
+      },
+    };
+  }
+
   function createJob(e) {
     e?.preventDefault();
     if (editingJobId) {
-      const updated = { ...jobForm, id: editingJobId };
+      const updated = { ...normalizeJobFormForSave(jobForm), id: editingJobId };
       setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j.id === editingJobId ? updated : j)) }));
       audit("update-job", { jobId: editingJobId, title: updated.title });
       addToast("Job updated", { type: "success" });
       setEditingJobId(null);
-      setJobForm({ title: "", department: "", grade: "", description: "", locations: [], openings: 1, employmentType: "Full-time", salary: { min: 0, max: 0 }, fields: {} });
+      setJobForm(emptyJobForm);
       return;
     }
 
-    const j = { ...jobForm, id: `job-${Date.now()}`, createdAt: new Date().toISOString() };
+    const j = { ...normalizeJobFormForSave(jobForm), id: `job-${Date.now()}`, createdAt: new Date().toISOString() };
     setState((s) => ({ ...s, jobs: [j, ...(s.jobs || [])] }));
     audit("create-job", { jobId: j.id, title: j.title });
-    setJobForm({ title: "", department: "", grade: "", description: "", locations: [], openings: 1, employmentType: "Full-time", salary: { min: 0, max: 0 }, fields: {} });
+    setJobForm(emptyJobForm);
     addToast("Job created (local)", { type: "success" });
   }
 
@@ -288,8 +259,11 @@ function PvaraPhase2() {
     const errs = [];
     if (!form.title || !form.title.trim()) errs.push("Title required");
     if (!form.department || !form.department.trim()) errs.push("Department required");
-    if (form.openings && Number(form.openings) <= 0) errs.push("Openings must be > 0");
-    if (form.salary && Number(form.salary.min) > Number(form.salary.max)) errs.push("Salary min must be <= max");
+    const openingsNum = form.openings === "" ? null : Number(form.openings);
+    if (openingsNum !== null && openingsNum <= 0) errs.push("Openings must be > 0");
+    const salaryMinNum = form.salary?.min === "" ? null : Number(form.salary?.min);
+    const salaryMaxNum = form.salary?.max === "" ? null : Number(form.salary?.max);
+    if (salaryMinNum !== null && salaryMaxNum !== null && salaryMinNum > salaryMaxNum) errs.push("Salary min must be <= max");
     return errs;
   }
 
@@ -647,34 +621,22 @@ function PvaraPhase2() {
                 {jobErrs.map((e, i) => <div key={i}>• {e}</div>)}
               </div>
             )}
-            <input value={jobForm.title} onChange={(e) => handleJobFormChange('title', e.target.value)} placeholder="Title" className="border p-2 rounded w-full" />
+            <input ref={jobTitleRef} value={jobForm.title} onChange={(e) => handleJobFormChange('title', e.target.value)} placeholder="Title" className="border p-2 rounded w-full" />
             <input value={jobForm.department} onChange={(e) => handleJobFormChange('department', e.target.value)} placeholder="Department" className="border p-2 rounded w-full" />
             <textarea value={jobForm.description} onChange={(e) => handleJobFormChange('description', e.target.value)} placeholder="Description" className="border p-2 rounded w-full" />
             <div className="grid grid-cols-2 gap-2">
-              <input type="number" value={jobForm.openings} onChange={(e) => handleJobFormChange('openings', parseInt(e.target.value) || 1)} placeholder="Openings" className="border p-2 rounded w-full" />
+              <input type="number" value={jobForm.openings ?? ""} onChange={(e) => handleJobFormChange('openings', e.target.value)} placeholder="Openings" className="border p-2 rounded w-full" />
               <input value={jobForm.employmentType} onChange={(e) => handleJobFormChange('employmentType', e.target.value)} placeholder="Employment Type" className="border p-2 rounded w-full" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input type="number" value={jobForm.salary.min} onChange={(e) => handleSalaryChange('min', parseInt(e.target.value) || 0)} placeholder="Salary Min" className="border p-2 rounded w-full" />
-              <input type="number" value={jobForm.salary.max} onChange={(e) => handleSalaryChange('max', parseInt(e.target.value) || 0)} placeholder="Salary Max" className="border p-2 rounded w-full" />
+              <input type="number" value={jobForm.salary?.min ?? ""} onChange={(e) => handleSalaryChange('min', e.target.value)} placeholder="Salary Min" className="border p-2 rounded w-full" />
+              <input type="number" value={jobForm.salary?.max ?? ""} onChange={(e) => handleSalaryChange('max', e.target.value)} placeholder="Salary Max" className="border p-2 rounded w-full" />
             </div>
             <div className="flex gap-2">
                 <button className="px-3 py-2 bg-green-700 text-white rounded disabled:opacity-50" disabled={jobErrs.length > 0}>{editingJobId ? 'Update Job' : 'Create Job'}</button>
                 <button
                   type="button"
-                  onClick={() =>
-                    setJobForm({
-                      title: "",
-                      department: "",
-                      grade: "",
-                      description: "",
-                      locations: [],
-                      openings: 1,
-                      employmentType: "Full-time",
-                      salary: { min: 0, max: 0 },
-                      fields: {},
-                    })
-                  }
+                  onClick={() => setJobForm(emptyJobForm)}
                   className="px-3 py-2 border rounded"
                 >
                   Reset
@@ -684,7 +646,7 @@ function PvaraPhase2() {
                     type="button"
                     onClick={() => {
                       setEditingJobId(null);
-                      setJobForm({ title: "", department: "", grade: "", description: "", locations: [], openings: 1, employmentType: "Full-time", salary: { min: 0, max: 0 }, fields: {} });
+                      setJobForm(emptyJobForm);
                     }}
                     className="px-3 py-2 border rounded text-sm"
                   >
@@ -707,7 +669,14 @@ function PvaraPhase2() {
                     <div className="text-xs">{new Date(j.createdAt).toLocaleDateString()}</div>
                     <button
                       onClick={() => {
-                        setJobForm({ ...j });
+                        setJobForm({
+                          ...j,
+                          openings: j.openings !== undefined && j.openings !== null ? String(j.openings) : "",
+                          salary: {
+                            min: j.salary?.min !== undefined && j.salary?.min !== null ? String(j.salary.min) : "",
+                            max: j.salary?.max !== undefined && j.salary?.max !== null ? String(j.salary.max) : "",
+                          },
+                        });
                         setEditingJobId(j.id);
                         window.scrollTo?.(0, 0);
                       }}
@@ -1033,13 +1002,13 @@ function PvaraPhase2() {
   );
 }
 
-// Wrap with AuthProvider for standalone mounting
+// Wrap with AuthProvider and ToastProvider for standalone mounting
 export default function PvaraPhase2Wrapper() {
   return (
-    <ToastProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <ToastProvider>
         <PvaraPhase2 />
-      </AuthProvider>
-    </ToastProvider>
+      </ToastProvider>
+    </AuthProvider>
   );
 }
