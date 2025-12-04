@@ -3,6 +3,15 @@ import logo from "./logo.png";
 import "./index.css";
 import { ToastProvider, useToast } from "./ToastContext";
 import { AnalyticsDashboard, AIScreeningPanel, InterviewEvaluationForm } from "./AnalyticsDashboard";
+import {
+  EmailNotificationsPanel,
+  InterviewSchedulingPanel,
+  KanbanPipelineView,
+  AdvancedFilterPanel,
+  OfferManagementPanel,
+  AnalyticsReportsPanel,
+  SettingsPanel,
+} from "./AdvancedFeaturesUI";
 
 // ---------- Simple Auth (demo RBAC) ----------
 const AuthCtx = createContext();
@@ -435,6 +444,34 @@ function PvaraPhase2() {
           <button onClick={() => { setView("audit"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "audit" ? "bg-white/10" : ""}`}>
             Audit Log
           </button>
+          {/* Advanced Features Section */}
+          <div className="border-t border-white/20 mt-3 pt-3">
+            <div className="text-xs uppercase font-semibold opacity-60 px-3 py-1">Advanced</div>
+            {auth.hasRole(['hr','admin','recruiter']) && (
+              <>
+                <button onClick={() => { setView("emails"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "emails" ? "bg-white/10" : ""}`}>
+                  📧 Emails
+                </button>
+                <button onClick={() => { setView("scheduling"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "scheduling" ? "bg-white/10" : ""}`}>
+                  📅 Interviews
+                </button>
+                <button onClick={() => { setView("pipeline"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "pipeline" ? "bg-white/10" : ""}`}>
+                  🔄 Pipeline
+                </button>
+                <button onClick={() => { setView("offers"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "offers" ? "bg-white/10" : ""}`}>
+                  💼 Offers
+                </button>
+                <button onClick={() => { setView("reports"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "reports" ? "bg-white/10" : ""}`}>
+                  📈 Reports
+                </button>
+              </>
+            )}
+            {auth.hasRole('admin') && (
+              <button onClick={() => { setView("settings"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "settings" ? "bg-white/10" : ""}`}>
+                ⚙️ Settings
+              </button>
+            )}
+          </div>
         </nav>
 
         <div className="mt-4 text-xs text-gray-200">
@@ -865,6 +902,19 @@ function PvaraPhase2() {
     );
   }
 
+  // Advanced Features View Functions
+  const EmailNotificationsView = () => <EmailNotificationsPanel state={state} onSendEmail={(recipient, template) => addToast(`Email sent to ${recipient} with ${template} template`, { type: 'success' })} />;
+  
+  const InterviewSchedulingView = () => <InterviewSchedulingPanel state={state} onSchedule={(candidate, type, date) => addToast(`Interview scheduled for ${candidate} on ${date}`, { type: 'success' })} />;
+  
+  const PipelineView = () => <KanbanPipelineView state={state} onMoveCandidate={(candidate, newStage) => addToast(`${candidate} moved to ${newStage}`, { type: 'success' })} />;
+  
+  const OfferManagementView = () => <OfferManagementPanel state={state} onGenerateOffer={(candidate) => addToast(`Offer generated for ${candidate}`, { type: 'success' })} />;
+  
+  const AnalyticsReportsView = () => <AnalyticsReportsPanel state={state} onExport={(format) => addToast(`Report exported as ${format}`, { type: 'success' })} />;
+  
+  const SettingsView = () => <SettingsPanel state={state} onSaveSettings={(settings) => addToast("Settings updated successfully", { type: 'success' })} />;
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
@@ -877,6 +927,12 @@ function PvaraPhase2() {
         {view === "analytics" && <AnalyticsView />}
         {view === "shortlists" && <ShortlistsView />}
         {view === "audit" && <AuditView />}
+        {view === "emails" && <EmailNotificationsView />}
+        {view === "scheduling" && <InterviewSchedulingView />}
+        {view === "pipeline" && <PipelineView />}
+        {view === "offers" && <OfferManagementView />}
+        {view === "reports" && <AnalyticsReportsView />}
+        {view === "settings" && <SettingsView />}
       </div>
 
       {/* Drawer */}
