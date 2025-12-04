@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, createContext, useContext } from "react";
 import logo from "./logo.png";
 import "./index.css";
+import { ToastProvider, useToast } from "./ToastContext";
 
 // ---------- Simple Auth (demo RBAC) ----------
 const AuthCtx = createContext();
@@ -138,8 +139,10 @@ function PvaraPhase2() {
 
   const auth = useAuth();
   const user = auth?.user ?? null;
+  const { addToast } = useToast();
 
   const [view, setView] = useState("dashboard");
+  const [editingJobId, setEditingJobId] = useState(null);
   const [jobForm, setJobForm] = useState({
     title: "",
     department: "",
@@ -176,18 +179,34 @@ function PvaraPhase2() {
 
   function createJob(e) {
     e?.preventDefault();
+    if (editingJobId) {
+      const updated = { ...jobForm, id: editingJobId };
+      setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j.id === editingJobId ? updated : j)) }));
+      audit("update-job", { jobId: editingJobId, title: updated.title });
+      addToast("Job updated", { type: "success" });
+      setEditingJobId(null);
+      setJobForm({ title: "", department: "", grade: "", description: "", locations: [], openings: 1, employmentType: "Full-time", salary: { min: 0, max: 0 }, fields: {} });
+      return;
+    }
+
     const j = { ...jobForm, id: `job-${Date.now()}`, createdAt: new Date().toISOString() };
     setState((s) => ({ ...s, jobs: [j, ...(s.jobs || [])] }));
     audit("create-job", { jobId: j.id, title: j.title });
     setJobForm({ title: "", department: "", grade: "", description: "", locations: [], openings: 1, employmentType: "Full-time", salary: { min: 0, max: 0 }, fields: {} });
-    alert("Job created (local)");
+    addToast("Job created (local)", { type: "success" });
+  }
+
+  function deleteJob(jobId) {
+    setState((s) => ({ ...s, jobs: (s.jobs || []).filter((j) => j.id !== jobId) }));
+    audit("delete-job", { jobId });
+    addToast("Job deleted", { type: "info" });
   }
 
   function submitApplication(e) {
     e?.preventDefault();
     const job = (state.jobs || []).find((j) => j.id === appForm.jobId);
     if (!job) {
-      alert("Select job");
+      addToast("Select job", { type: "error" });
       return;
     }
 
@@ -229,7 +248,7 @@ function PvaraPhase2() {
     audit("submit-app", { appId: app.id, jobId: job.id, status: app.status });
     setAppForm({ jobId: state.jobs[0]?.id || "", name: "", email: "", cnic: "", phone: "", degree: "", experienceYears: "", address: "", linkedin: "" });
     if (fileRef.current) fileRef.current.value = null;
-    alert("Application submitted: " + app.status);
+    addToast("Application submitted: " + app.status, { type: "success" });
   }
 
   function openDrawer(app) {
@@ -261,7 +280,7 @@ function PvaraPhase2() {
 
   function exportShortlistCSV(slId) {
     const sl = state.shortlists.find((s) => s.id === slId);
-    if (!sl) return alert("Not found");
+    if (!sl) return addToast("Shortlist not found", { type: "error" });
     const rows = [["Name", "Email", "Score"]];
     sl.items.forEach((i) => {
       const a = state.applications.find((x) => x.id === i.applicantId);
@@ -296,14 +315,21 @@ function PvaraPhase2() {
           <button onClick={() => setView("apply")} className={`w-full text-left px-3 py-2 rounded ${view === "apply" ? "bg-white/10" : ""}`}>
             Apply
           </button>
-          <button onClick={() => setView("admin")} className={`w-full text-left px-3 py-2 rounded ${view === "admin" ? "bg-white/10" : ""}`}>
-            Admin
-          </button>
-          <button onClick={() => setView("hr")} className={`w-full text-left px-3 py-2 rounded ${view === "hr" ? "bg-white/10" : ""}`}>
-            HR Review
-          </button>
+          {auth.hasRole('admin') && (
+            <button onClick={() => setView("admin")} className={`w-full text-left px-3 py-2 rounded ${view === "admin" ? "bg-white/10" : ""}`}>
+              Admin
+            </button>
+          )}
+          {auth.hasRole(['hr','admin','recruiter']) && (
+            <button onClick={() => setView("hr")} className={`w-full text-left px-3 py-2 rounded ${view === "hr" ? "bg-white/10" : ""}`}>
+              HR Review
+            </button>
+          )}
           <button onClick={() => setView("shortlists")} className={`w-full text-left px-3 py-2 rounded ${view === "shortlists" ? "bg-white/10" : ""}`}>
             Shortlists
+          </button>
+          <button onClick={() => setView("audit")} className={`w-full text-left px-3 py-2 rounded ${view === "audit" ? "bg-white/10" : ""}`}>
+            Audit
           </button>
         </nav>
 
@@ -333,7 +359,7 @@ function PvaraPhase2() {
               <LoginInline
                 onLogin={(cred) => {
                   const res = auth.login(cred);
-                  if (!res.ok) alert(res.message);
+                  if (!res.ok) addToast(res.message, { type: 'error' });
                   else setView("dashboard");
                 }}
               />
@@ -468,26 +494,38 @@ function PvaraPhase2() {
             <input value={jobForm.department} onChange={(e) => setJobForm({ ...jobForm, department: e.target.value })} placeholder="Department" className="border p-2 rounded w-full" />
             <textarea value={jobForm.description} onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })} placeholder="Description" className="border p-2 rounded w-full" />
             <div className="flex gap-2">
-              <button className="px-3 py-2 bg-green-700 text-white rounded">Create Job</button>
-              <button
-                type="button"
-                onClick={() =>
-                  setJobForm({
-                    title: "",
-                    department: "",
-                    grade: "",
-                    description: "",
-                    locations: [],
-                    openings: 1,
-                    employmentType: "Full-time",
-                    salary: { min: 0, max: 0 },
-                    fields: {},
-                  })
-                }
-                className="px-3 py-2 border rounded"
-              >
-                Reset
-              </button>
+                <button className="px-3 py-2 bg-green-700 text-white rounded">{editingJobId ? 'Update Job' : 'Create Job'}</button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setJobForm({
+                      title: "",
+                      department: "",
+                      grade: "",
+                      description: "",
+                      locations: [],
+                      openings: 1,
+                      employmentType: "Full-time",
+                      salary: { min: 0, max: 0 },
+                      fields: {},
+                    })
+                  }
+                  className="px-3 py-2 border rounded"
+                >
+                  Reset
+                </button>
+                {editingJobId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingJobId(null);
+                      setJobForm({ title: "", department: "", grade: "", description: "", locations: [], openings: 1, employmentType: "Full-time", salary: { min: 0, max: 0 }, fields: {} });
+                    }}
+                    className="px-3 py-2 border rounded text-sm"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
             </div>
           </form>
 
@@ -495,12 +533,27 @@ function PvaraPhase2() {
             <h4 className="font-semibold">Existing Jobs</h4>
             {(state.jobs || []).map((j) => (
               <div key={j.id} className="border p-2 rounded mt-2">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <div>
                     <div className="font-semibold">{j.title}</div>
                     <div className="text-xs text-gray-500">{j.department}</div>
                   </div>
-                  <div className="text-xs">{new Date(j.createdAt).toLocaleDateString()}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs">{new Date(j.createdAt).toLocaleDateString()}</div>
+                    <button
+                      onClick={() => {
+                        setJobForm({ ...j });
+                        setEditingJobId(j.id);
+                        window.scrollTo?.(0, 0);
+                      }}
+                      className="px-2 py-1 border rounded text-sm"
+                    >
+                      Edit
+                    </button>
+                    <button onClick={() => deleteJob(j.id)} className="px-2 py-1 border rounded text-sm">
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -543,11 +596,11 @@ function PvaraPhase2() {
           <div className="mt-2 flex gap-2">
             <button
               onClick={() => {
-                if (!selectedApps.length) return alert("Select applicants first");
+                if (!selectedApps.length) return addToast("Select applicants first", { type: 'error' });
                 const jobId = state.applications.find((x) => x.id === selectedApps[0])?.jobId;
                 createShortlist(jobId, selectedApps);
                 setSelectedApps([]);
-                alert("Shortlist created");
+                addToast("Shortlist created", { type: 'success' });
               }}
               className="px-3 py-2 bg-green-700 text-white rounded"
             >
@@ -588,6 +641,46 @@ function PvaraPhase2() {
     );
   }
 
+  function AuditView() {
+    const rows = (state.audit || []).slice(0, 200);
+    function exportAudit() {
+      const csvRows = [["id", "action", "details", "ts", "user"]];
+      (state.audit || []).forEach((r) => csvRows.push([r.id, r.action, JSON.stringify(r.details || {}), r.ts, r.user]));
+      const csv = arrayToCSV(csvRows);
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast('Audit exported', { type: 'success' });
+    }
+
+    return (
+      <div>
+        <Header title="Audit Log" />
+        <div className="bg-white p-4 rounded shadow space-y-2">
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-600">Showing {rows.length} recent entries</div>
+            <div>
+              <button onClick={exportAudit} className="px-3 py-1 border rounded">Export CSV</button>
+            </div>
+          </div>
+          <div className="max-h-96 overflow-auto">
+            {rows.map((r) => (
+              <div key={r.id} className="border-b py-2">
+                <div className="text-sm font-semibold">{r.action}</div>
+                <div className="text-xs text-gray-500">{new Date(r.ts).toLocaleString()} — {r.user}</div>
+                <div className="text-xs mt-1 whitespace-pre-wrap">{JSON.stringify(r.details)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
@@ -597,6 +690,7 @@ function PvaraPhase2() {
         {view === "admin" && <AdminView />}
         {view === "hr" && <HRView />}
         {view === "shortlists" && <ShortlistsView />}
+        {view === "audit" && <AuditView />}
       </div>
 
       {/* Drawer */}
@@ -645,8 +739,10 @@ function PvaraPhase2() {
 // Wrap with AuthProvider for standalone mounting
 export default function PvaraPhase2Wrapper() {
   return (
-    <AuthProvider>
-      <PvaraPhase2 />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <PvaraPhase2 />
+      </AuthProvider>
+    </ToastProvider>
   );
 }
