@@ -25,6 +25,7 @@ export const EmailTemplates = {
     subject: `Application Status - ${jobTitle}`,
     body: `Dear ${candidateName},\n\nThank you for your interest in the ${jobTitle} position. After careful consideration, we have decided to move forward with other candidates.\n\nBest of luck in your future endeavors!\n\nBest regards,\nPVARA Recruitment Team`,
   }),
+
 };
 
 export function sendEmail(to, template) {
@@ -42,8 +43,8 @@ export function sendEmail(to, template) {
   localStorage.setItem("PVARA_EMAILS", JSON.stringify(emailLog));
   console.log(`📧 Email sent to ${to}: ${template.subject}`);
   return email;
-}
 
+}
 // 2. INTERVIEW SCHEDULING
 export const InterviewTypes = ["Phone Screen", "Video Interview", "In-Person", "Group Discussion", "Technical Round"];
 
@@ -343,31 +344,3 @@ export function manageUsers(action, userData) {
   localStorage.setItem("PVARA_TEAM_USERS", JSON.stringify(users));
   return users;
 }
-
-export default {
-  EmailTemplates,
-  sendEmail,
-  InterviewTypes,
-  scheduleInterview,
-  generateAvailabilitySlots,
-  addMessage,
-  getConversation,
-  applyAdvancedFilter,
-  saveSavedFilter,
-  organizeByPipeline,
-  submitInterviewerFeedback,
-  calculateAggregateScore,
-  rankCandidatesByInterview,
-  generateOfferLetter,
-  trackOfferResponse,
-  exportToCSV,
-  exportToGoogleSheets,
-  notifySlack,
-  calculateMetrics,
-  analyzeApplicationSources,
-  recruiterPerformance,
-  getCompanySettings,
-  updateCompanySettings,
-  addCustomField,
-  manageUsers,
-};

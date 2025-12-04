@@ -10,9 +10,8 @@ import {
   scheduleInterview,
   generateAvailabilitySlots,
   addMessage,
-  applyAdvancedFilter,
   organizeByPipeline,
-  submitInterviewerFeedback,
+  applyAdvancedFilter,
   generateOfferLetter,
   exportToCSV,
   notifySlack,
@@ -87,7 +86,6 @@ export function EmailNotificationsPanel({ applications }) {
 export function InterviewSchedulingPanel() {
   const [interviews, setInterviews] = React.useState([]);
   const [formData, setFormData] = React.useState({ candidateId: "", type: "Phone Screen", date: "", notes: "" });
-  const slots = generateAvailabilitySlots(formData.date || new Date().toISOString().split("T")[0]);
 
   const scheduleInterview_ = () => {
     if (!formData.candidateId || !formData.date) return;
@@ -384,7 +382,7 @@ export function SettingsPanel() {
   );
 }
 
-export default {
+const AdvancedFeaturesUI = {
   EmailNotificationsPanel,
   InterviewSchedulingPanel,
   KanbanPipelineView,
@@ -392,4 +390,7 @@ export default {
   OfferManagementPanel,
   AnalyticsReportsPanel,
   SettingsPanel,
+
 };
+
+export default AdvancedFeaturesUI;

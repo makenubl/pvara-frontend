@@ -7,7 +7,6 @@ import {
   EmailNotificationsPanel,
   InterviewSchedulingPanel,
   KanbanPipelineView,
-  AdvancedFilterPanel,
   OfferManagementPanel,
   AnalyticsReportsPanel,
   SettingsPanel,
@@ -192,9 +191,6 @@ function PvaraPhase2() {
     setJobForm((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  const handleFieldsChange = useCallback((field, value) => {
-    setJobForm((prev) => ({ ...prev, fields: { ...prev.fields, [field]: value } }));
-  }, []);
 
   function audit(action, details) {
     // CORRECTED: use a template literal so JS parses it
