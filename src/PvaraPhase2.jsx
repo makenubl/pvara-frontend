@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, createContext, useContext } from "react";
+import React, { useEffect, useRef, useState, createContext, useContext, useCallback } from "react";
 import logo from "./logo.png";
 import "./index.css";
 import { ToastProvider, useToast } from "./ToastContext";
@@ -173,6 +173,19 @@ function PvaraPhase2() {
   const [selectedApps, setSelectedApps] = useState([]);
   const [evaluationModal, setEvaluationModal] = useState({ open: false, candidate: null });
   const [selectedJobForAI, setSelectedJobForAI] = useState(null);
+
+  // Memoized handlers to prevent input focus loss
+  const handleAppFormChange = useCallback((field, value) => {
+    setAppForm((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleJobFormChange = useCallback((field, value) => {
+    setJobForm((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleFieldsChange = useCallback((field, value) => {
+    setJobForm((prev) => ({ ...prev, fields: { ...prev.fields, [field]: value } }));
+  }, []);
 
   function audit(action, details) {
     // CORRECTED: use a template literal so JS parses it
@@ -516,7 +529,7 @@ function PvaraPhase2() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white p-4 md:p-6 rounded shadow">
             <form onSubmit={submitApplication} className="space-y-3">
-              <select value={appForm.jobId} onChange={(e) => setAppForm((prev) => ({ ...prev, jobId: e.target.value }))} className="border p-2 rounded w-full text-sm md:text-base">
+              <select value={appForm.jobId} onChange={(e) => handleAppFormChange('jobId', e.target.value)} className="border p-2 rounded w-full text-sm md:text-base">
                 {(state.jobs || []).map((j) => (
                   <option key={j.id} value={j.id}>
                     {j.title} — {j.department}
@@ -524,21 +537,21 @@ function PvaraPhase2() {
                 ))}
               </select>
 
-              <input className="border p-2 rounded w-full text-sm md:text-base" placeholder="Full name" value={appForm.name} onChange={(e) => setAppForm((prev) => ({ ...prev, name: e.target.value }))} required />
-              <input className="border p-2 rounded w-full text-sm md:text-base" placeholder="Email" type="email" value={appForm.email} onChange={(e) => setAppForm((prev) => ({ ...prev, email: e.target.value }))} required />
+              <input className="border p-2 rounded w-full text-sm md:text-base" placeholder="Full name" value={appForm.name} onChange={(e) => handleAppFormChange('name', e.target.value)} required />
+              <input className="border p-2 rounded w-full text-sm md:text-base" placeholder="Email" type="email" value={appForm.email} onChange={(e) => handleAppFormChange('email', e.target.value)} required />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input value={appForm.cnic} onChange={(e) => setAppForm((prev) => ({ ...prev, cnic: e.target.value }))} placeholder="CNIC" className="border p-2 rounded w-full" />
-                <input value={appForm.phone} onChange={(e) => setAppForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="Phone" className="border p-2 rounded w-full" />
+                <input value={appForm.cnic} onChange={(e) => handleAppFormChange('cnic', e.target.value)} placeholder="CNIC" className="border p-2 rounded w-full" />
+                <input value={appForm.phone} onChange={(e) => handleAppFormChange('phone', e.target.value)} placeholder="Phone" className="border p-2 rounded w-full" />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <input value={appForm.degree} onChange={(e) => setAppForm((prev) => ({ ...prev, degree: e.target.value }))} placeholder="Degree" className="border p-2 rounded w-full" />
-                <input value={appForm.experienceYears} onChange={(e) => setAppForm((prev) => ({ ...prev, experienceYears: e.target.value }))} placeholder="Years" type="number" className="border p-2 rounded w-full" />
+                <input value={appForm.degree} onChange={(e) => handleAppFormChange('degree', e.target.value)} placeholder="Degree" className="border p-2 rounded w-full" />
+                <input value={appForm.experienceYears} onChange={(e) => handleAppFormChange('experienceYears', e.target.value)} placeholder="Years" type="number" className="border p-2 rounded w-full" />
               </div>
 
-              <input value={appForm.linkedin} onChange={(e) => setAppForm((prev) => ({ ...prev, linkedin: e.target.value }))} placeholder="LinkedIn profile (optional)" className="border p-2 rounded w-full" />
-              <textarea value={appForm.address} onChange={(e) => setAppForm((prev) => ({ ...prev, address: e.target.value }))} placeholder="Address" className="border p-2 rounded w-full" />
+              <input value={appForm.linkedin} onChange={(e) => handleAppFormChange('linkedin', e.target.value)} placeholder="LinkedIn profile (optional)" className="border p-2 rounded w-full" />
+              <textarea value={appForm.address} onChange={(e) => handleAppFormChange('address', e.target.value)} placeholder="Address" className="border p-2 rounded w-full" />
 
               <div>
                 <label className="block mb-1">Upload (CV / other)</label>
@@ -590,12 +603,12 @@ function PvaraPhase2() {
                 {jobErrs.map((e, i) => <div key={i}>• {e}</div>)}
               </div>
             )}
-            <input value={jobForm.title} onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })} placeholder="Title" className="border p-2 rounded w-full" />
-            <input value={jobForm.department} onChange={(e) => setJobForm({ ...jobForm, department: e.target.value })} placeholder="Department" className="border p-2 rounded w-full" />
-            <textarea value={jobForm.description} onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })} placeholder="Description" className="border p-2 rounded w-full" />
+            <input value={jobForm.title} onChange={(e) => handleJobFormChange('title', e.target.value)} placeholder="Title" className="border p-2 rounded w-full" />
+            <input value={jobForm.department} onChange={(e) => handleJobFormChange('department', e.target.value)} placeholder="Department" className="border p-2 rounded w-full" />
+            <textarea value={jobForm.description} onChange={(e) => handleJobFormChange('description', e.target.value)} placeholder="Description" className="border p-2 rounded w-full" />
             <div className="grid grid-cols-2 gap-2">
-              <input type="number" value={jobForm.openings} onChange={(e) => setJobForm({ ...jobForm, openings: parseInt(e.target.value) || 1 })} placeholder="Openings" className="border p-2 rounded w-full" />
-              <input value={jobForm.employmentType} onChange={(e) => setJobForm({ ...jobForm, employmentType: e.target.value })} placeholder="Employment Type" className="border p-2 rounded w-full" />
+              <input type="number" value={jobForm.openings} onChange={(e) => handleJobFormChange('openings', parseInt(e.target.value) || 1)} placeholder="Openings" className="border p-2 rounded w-full" />
+              <input value={jobForm.employmentType} onChange={(e) => handleJobFormChange('employmentType', e.target.value)} placeholder="Employment Type" className="border p-2 rounded w-full" />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <input type="number" value={jobForm.salary.min} onChange={(e) => setJobForm({ ...jobForm, salary: { ...jobForm.salary, min: parseInt(e.target.value) || 0 } })} placeholder="Salary Min" className="border p-2 rounded w-full" />
