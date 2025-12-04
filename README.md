@@ -1,3 +1,46 @@
+# PVARA Frontend
+
+This repository contains a small React demo for PVARA (enterprise recruitment demo).
+
+Features added in this branch:
+- Toast notifications (`src/ToastContext.jsx`)
+- Audit viewer with CSV export
+- Admin job create/edit/delete
+- Playwright E2E tests and configuration
+
+Quick start (development):
+
+```bash
+npm install
+npm start
+# open http://localhost:3000
+```
+
+Run unit tests:
+
+```bash
+CI=true npm test -- --watchAll=false
+```
+
+Run E2E tests (Playwright):
+
+```bash
+npx playwright install --with-deps
+npx playwright test
+```
+
+Docker (build + run):
+
+```bash
+docker build -t pvara-frontend .
+docker run -p 8080:80 pvara-frontend
+# open http://localhost:8080
+```
+
+Deployment notes / next steps:
+- Add GitHub Actions (CI) to run unit & E2E tests on PRs (workflow added).
+- Add environment handling and secrets management for production.
+- Harden release pipeline (container image signing / scanning).
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
