@@ -176,7 +176,7 @@ function PvaraPhase2() {
     audit("create-job", { jobId: j.id, title: j.title });
     setJobForm(emptyJobForm);
     addToast("Job created (local)", { type: "success" });
-  }, [editingJobId, jobForm, addToast, state]);
+  }, [editingJobId, jobForm, addToast, state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function audit(action, details) {
     // CORRECTED: use a template literal so JS parses it
@@ -198,12 +198,11 @@ function PvaraPhase2() {
     };
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const deleteJob = useCallback((jobId) => {
     setState((s) => ({ ...s, jobs: (s.jobs || []).filter((j) => j.id !== jobId) }));
     audit("delete-job", { jobId });
     addToast("Job deleted", { type: "info" });
-  }, [addToast, state]);
+  }, [addToast, state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function submitApplication(e) {
     e?.preventDefault();
