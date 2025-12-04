@@ -352,9 +352,35 @@ function PvaraPhase2() {
   }
 
   // ---------- UI components ----------
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   function Sidebar() {
     return (
-      <div className="w-72 bg-gradient-to-b from-green-800 to-green-700 text-white min-h-screen p-6 flex flex-col">
+      <>
+        {/* Mobile Menu Button */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="lg:hidden fixed top-4 left-4 z-50 bg-green-800 text-white p-2 rounded-lg shadow-lg"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {mobileMenuOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
+
+        {/* Overlay for mobile */}
+        {mobileMenuOpen && (
+          <div
+            className="lg:hidden fixed inset-0 bg-black/50 z-30"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
+        {/* Sidebar */}
+        <div className={`fixed lg:static w-72 bg-gradient-to-b from-green-800 to-green-700 text-white min-h-screen p-6 flex flex-col z-40 transition-transform duration-300 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="flex items-center gap-3 mb-6">
           <img src={logo} alt="PVARA" className="h-10" />
           <div>
@@ -364,37 +390,37 @@ function PvaraPhase2() {
         </div>
 
         <nav className="flex-1 space-y-1">
-          <button onClick={() => setView("dashboard")} className={`w-full text-left px-3 py-2 rounded ${view === "dashboard" ? "bg-white/10" : ""}`}>
+          <button onClick={() => { setView("dashboard"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "dashboard" ? "bg-white/10" : ""}`}>
             Dashboard
           </button>
-          <button onClick={() => setView("apply")} className={`w-full text-left px-3 py-2 rounded ${view === "apply" ? "bg-white/10" : ""}`}>
+          <button onClick={() => { setView("apply"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "apply" ? "bg-white/10" : ""}`}>
             Apply
           </button>
           {auth.hasRole('admin') && (
-            <button onClick={() => setView("admin")} className={`w-full text-left px-3 py-2 rounded ${view === "admin" ? "bg-white/10" : ""}`}>
+            <button onClick={() => { setView("admin"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "admin" ? "bg-white/10" : ""}`}>
               Admin
             </button>
           )}
           {auth.hasRole(['hr','admin','recruiter']) && (
-            <button onClick={() => setView("hr")} className={`w-full text-left px-3 py-2 rounded ${view === "hr" ? "bg-white/10" : ""}`}>
+            <button onClick={() => { setView("hr"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "hr" ? "bg-white/10" : ""}`}>
               HR Review
             </button>
           )}
           {auth.hasRole(['hr','admin','recruiter']) && (
-            <button onClick={() => setView("ai-screening")} className={`w-full text-left px-3 py-2 rounded ${view === "ai-screening" ? "bg-white/10" : ""}`}>
+            <button onClick={() => { setView("ai-screening"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "ai-screening" ? "bg-white/10" : ""}`}>
               🤖 AI Screening
             </button>
           )}
-          {auth.hasRole(['hr','admin']) && (
-            <button onClick={() => setView("analytics")} className={`w-full text-left px-3 py-2 rounded ${view === "analytics" ? "bg-white/10" : ""}`}>
+          {auth.hasRole(['hr','admin','recruiter']) && (
+            <button onClick={() => { setView("analytics"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "analytics" ? "bg-white/10" : ""}`}>
               📊 Analytics
             </button>
           )}
-          <button onClick={() => setView("shortlists")} className={`w-full text-left px-3 py-2 rounded ${view === "shortlists" ? "bg-white/10" : ""}`}>
+          <button onClick={() => { setView("shortlists"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "shortlists" ? "bg-white/10" : ""}`}>
             Shortlists
           </button>
-          <button onClick={() => setView("audit")} className={`w-full text-left px-3 py-2 rounded ${view === "audit" ? "bg-white/10" : ""}`}>
-            Audit
+          <button onClick={() => { setView("audit"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded ${view === "audit" ? "bg-white/10" : ""}`}>
+            Audit Log
           </button>
         </nav>
 
@@ -432,19 +458,22 @@ function PvaraPhase2() {
           )}
         </div>
       </div>
+      </>
     );
   }
 
   function Header({ title }) {
     return (
-      <div className="flex items-center justify-between bg-white p-4 rounded shadow-sm mb-4">
-        <div>
-          <h2 className="text-xl font-semibold text-green-800">{title}</h2>
-          <div className="text-sm text-gray-500">Enterprise Recruitment • PVARA</div>
-        </div>
-        <div className="flex items-center gap-3">
-          <input placeholder="Search applications..." value={hrSearch} onChange={(e) => setHrSearch(e.target.value)} className="border p-2 rounded w-64" />
-          <div className="text-sm text-gray-600">{(state.applications || []).length} applications</div>
+      <div className="bg-white p-4 rounded shadow-sm mb-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-xl md:text-2xl font-semibold text-green-800">{title}</h2>
+            <div className="text-sm text-gray-500">Enterprise Recruitment • PVARA</div>
+          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <input placeholder="Search applications..." value={hrSearch} onChange={(e) => setHrSearch(e.target.value)} className="border p-2 rounded w-full sm:w-64" />
+            <div className="text-sm text-gray-600 whitespace-nowrap">{(state.applications || []).length} applications</div>
+          </div>
         </div>
       </div>
     );
@@ -458,7 +487,7 @@ function PvaraPhase2() {
     return (
       <div className="space-y-4">
         <Header title="Dashboard" />
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 bg-white rounded shadow">
             <div className="text-sm text-gray-500">Total Applications</div>
             <div className="text-2xl font-bold text-green-700">{totalApps}</div>
@@ -484,10 +513,10 @@ function PvaraPhase2() {
     return (
       <div>
         <Header title="Apply for Job" />
-        <div className="grid grid-cols-3 gap-6">
-          <div className="md:col-span-2 bg-white p-4 rounded shadow">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white p-4 md:p-6 rounded shadow">
             <form onSubmit={submitApplication} className="space-y-3">
-              <select value={appForm.jobId} onChange={(e) => setAppForm((prev) => ({ ...prev, jobId: e.target.value }))} className="border p-2 rounded w-full">
+              <select value={appForm.jobId} onChange={(e) => setAppForm((prev) => ({ ...prev, jobId: e.target.value }))} className="border p-2 rounded w-full text-sm md:text-base">
                 {(state.jobs || []).map((j) => (
                   <option key={j.id} value={j.id}>
                     {j.title} — {j.department}
@@ -495,10 +524,10 @@ function PvaraPhase2() {
                 ))}
               </select>
 
-              <input className="border p-2 rounded w-full" placeholder="Full name" value={appForm.name} onChange={(e) => setAppForm((prev) => ({ ...prev, name: e.target.value }))} required />
-              <input className="border p-2 rounded w-full" placeholder="Email" type="email" value={appForm.email} onChange={(e) => setAppForm((prev) => ({ ...prev, email: e.target.value }))} required />
+              <input className="border p-2 rounded w-full text-sm md:text-base" placeholder="Full name" value={appForm.name} onChange={(e) => setAppForm((prev) => ({ ...prev, name: e.target.value }))} required />
+              <input className="border p-2 rounded w-full text-sm md:text-base" placeholder="Email" type="email" value={appForm.email} onChange={(e) => setAppForm((prev) => ({ ...prev, email: e.target.value }))} required />
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input value={appForm.cnic} onChange={(e) => setAppForm((prev) => ({ ...prev, cnic: e.target.value }))} placeholder="CNIC" className="border p-2 rounded w-full" />
                 <input value={appForm.phone} onChange={(e) => setAppForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="Phone" className="border p-2 rounded w-full" />
               </div>
@@ -826,7 +855,7 @@ function PvaraPhase2() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-4 md:p-6 lg:ml-0 pt-16 lg:pt-6">
         {view === "dashboard" && <DashboardView />}
         {view === "apply" && <ApplyView />}
         {view === "admin" && <AdminView />}
