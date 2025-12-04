@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState, createContext, useContext } from "r
 import logo from "./logo.png";
 import "./index.css";
 import { ToastProvider, useToast } from "./ToastContext";
+import { AnalyticsDashboard, AIScreeningPanel, InterviewEvaluationForm } from "./AnalyticsDashboard";
+import { calculateCandidateScore, autoSelectCandidates } from "./aiScreening";
 
 // ---------- Simple Auth (demo RBAC) ----------
 const AuthCtx = createContext();
@@ -170,6 +172,8 @@ function PvaraPhase2() {
   const [drawer, setDrawer] = useState({ open: false, app: null });
   const [hrSearch, setHrSearch] = useState("");
   const [selectedApps, setSelectedApps] = useState([]);
+  const [evaluationModal, setEvaluationModal] = useState({ open: false, candidate: null });
+  const [selectedJobForAI, setSelectedJobForAI] = useState(null);
 
   function audit(action, details) {
     // CORRECTED: use a template literal so JS parses it
@@ -281,6 +285,35 @@ function PvaraPhase2() {
     setDrawer({ open: false, app: null });
   }
 
+  // Handle interview evaluation submission with AI score calculation
+  function submitInterviewEvaluation(evaluation) {
+    const candidate = state.applications.find(a => a.id === evaluation.candidateId);
+    if (!candidate) return;
+
+    // Calculate interview score (1-10 weighted average)
+    const interviewScore = Object.values(evaluation.scores).reduce((a, b) => a + b) / Object.keys(evaluation.scores).length;
+
+    setState((s) => {
+      const apps = (s.applications || []).map((a) =>
+        a.id === evaluation.candidateId
+          ? {
+            ...a,
+            interviewScore: Math.round(interviewScore * 10),
+            interviewNotes: evaluation.notes,
+            interviewedAt: evaluation.timestamp,
+            evaluationScores: evaluation.scores,
+          }
+          : a
+      );
+      return { ...s, applications: apps };
+    });
+
+    audit("submit-evaluation", { appId: evaluation.candidateId, score: Math.round(interviewScore * 10) });
+    addToast("Interview evaluation saved", { type: "success" });
+    setEvaluationModal({ open: false, candidate: null });
+    closeDrawer();
+  }
+
   function toggleSelectApp(appId) {
     setSelectedApps((s) => (s.includes(appId) ? s.filter((x) => x !== appId) : [...s, appId]));
   }
@@ -346,6 +379,16 @@ function PvaraPhase2() {
           {auth.hasRole(['hr','admin','recruiter']) && (
             <button onClick={() => setView("hr")} className={`w-full text-left px-3 py-2 rounded ${view === "hr" ? "bg-white/10" : ""}`}>
               HR Review
+            </button>
+          )}
+          {auth.hasRole(['hr','admin','recruiter']) && (
+            <button onClick={() => setView("ai-screening")} className={`w-full text-left px-3 py-2 rounded ${view === "ai-screening" ? "bg-white/10" : ""}`}>
+              🤖 AI Screening
+            </button>
+          )}
+          {auth.hasRole(['hr','admin']) && (
+            <button onClick={() => setView("analytics")} className={`w-full text-left px-3 py-2 rounded ${view === "analytics" ? "bg-white/10" : ""}`}>
+              📊 Analytics
             </button>
           )}
           <button onClick={() => setView("shortlists")} className={`w-full text-left px-3 py-2 rounded ${view === "shortlists" ? "bg-white/10" : ""}`}>
@@ -718,6 +761,69 @@ function PvaraPhase2() {
     );
   }
 
+  function AIScreeningView() {
+    if (!auth.hasRole(['hr', 'admin', 'recruiter'])) return <div>Access denied</div>;
+    const jobList = (state.jobs || []).filter(j => j.status === 'open');
+    const selectedJob = selectedJobForAI ? state.jobs.find(j => j.id === selectedJobForAI) : jobList[0];
+    const jobApps = selectedJob
+      ? (state.applications || []).filter(a => a.jobId === selectedJob.id)
+      : [];
+
+    return (
+      <div>
+        <Header title="🤖 AI Candidate Screening" />
+        <div className="space-y-4">
+          {/* Job Selector */}
+          <div className="bg-white p-4 rounded shadow">
+            <label className="block font-semibold mb-2">Select Job Position</label>
+            <select
+              value={selectedJobForAI || ''}
+              onChange={(e) => setSelectedJobForAI(e.target.value)}
+              className="border p-2 rounded w-full"
+            >
+              <option value="">-- Choose a job --</option>
+              {jobList.map(j => (
+                <option key={j.id} value={j.id}>{j.title} ({j.department})</option>
+              ))}
+            </select>
+          </div>
+
+          {/* AI Screening Panel */}
+          {selectedJob && (
+            <AIScreeningPanel
+              candidates={jobApps}
+              jobRequirements={{
+                education: { required: 'Bachelor' },
+                experience: { minYears: 2 },
+                skills: { required: [] },
+              }}
+              onSelectCandidates={(candidateIds) => {
+                if (!candidateIds.length) {
+                  addToast('Select at least one candidate', { type: 'error' });
+                  return;
+                }
+                const jobId = selectedJob.id;
+                createShortlist(jobId, candidateIds);
+                setSelectedJobForAI(null);
+                addToast(`Shortlist created with ${candidateIds.length} candidates`, { type: 'success' });
+              }}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function AnalyticsView() {
+    if (!auth.hasRole(['hr', 'admin'])) return <div>Access denied</div>;
+    return (
+      <div>
+        <Header title="📊 Analytics & Reports" />
+        <AnalyticsDashboard state={state} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
@@ -726,6 +832,8 @@ function PvaraPhase2() {
         {view === "apply" && <ApplyView />}
         {view === "admin" && <AdminView />}
         {view === "hr" && <HRView />}
+        {view === "ai-screening" && <AIScreeningView />}
+        {view === "analytics" && <AnalyticsView />}
         {view === "shortlists" && <ShortlistsView />}
         {view === "audit" && <AuditView />}
       </div>
@@ -762,6 +870,7 @@ function PvaraPhase2() {
                     <button onClick={() => changeApplicationStatus(drawer.app.id, "interview", "")} className="w-full px-2 py-1 border rounded text-sm bg-blue-50 hover:bg-blue-100">In-Person Interview</button>
                     <button onClick={() => changeApplicationStatus(drawer.app.id, "offer", "")} className="w-full px-2 py-1 border rounded text-sm bg-green-50 hover:bg-green-100">Send Offer</button>
                     <button onClick={() => changeApplicationStatus(drawer.app.id, "rejected", "Does not meet criteria")} className="w-full px-2 py-1 border rounded text-sm bg-red-50 hover:bg-red-100">Reject</button>
+                    <button onClick={() => setEvaluationModal({ open: true, candidate: drawer.app })} className="w-full px-2 py-1 border rounded text-sm bg-purple-50 hover:bg-purple-100">📋 Evaluation Form</button>
                   </div>
                 </div>
               )}
@@ -771,6 +880,19 @@ function PvaraPhase2() {
           )}
         </div>
       </div>
+
+      {/* Interview Evaluation Modal */}
+      {evaluationModal.open && evaluationModal.candidate && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded w-full max-w-2xl max-h-96 overflow-auto p-4">
+            <InterviewEvaluationForm
+              candidate={evaluationModal.candidate}
+              onSubmit={submitInterviewEvaluation}
+              onCancel={() => setEvaluationModal({ open: false, candidate: null })}
+            />
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         open={confirm.open}
