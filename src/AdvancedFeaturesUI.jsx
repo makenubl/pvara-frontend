@@ -8,8 +8,6 @@ import {
   sendEmail,
   InterviewTypes,
   scheduleInterview,
-  generateAvailabilitySlots,
-  addMessage,
   organizeByPipeline,
   applyAdvancedFilter,
   generateOfferLetter,
@@ -86,6 +84,9 @@ export function EmailNotificationsPanel({ applications }) {
 export function InterviewSchedulingPanel() {
   const [interviews, setInterviews] = React.useState([]);
   const [formData, setFormData] = React.useState({ candidateId: "", type: "Phone Screen", date: "", notes: "" });
+  const handleChange = React.useCallback((field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   const scheduleInterview_ = () => {
     if (!formData.candidateId || !formData.date) return;
@@ -102,12 +103,12 @@ export function InterviewSchedulingPanel() {
           type="text"
           placeholder="Candidate ID"
           value={formData.candidateId}
-          onChange={(e) => setFormData({ ...formData, candidateId: e.target.value })}
+          onChange={(e) => handleChange("candidateId", e.target.value)}
           className="w-full border p-2 rounded text-sm"
         />
         <select
           value={formData.type}
-          onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+          onChange={(e) => handleChange("type", e.target.value)}
           className="w-full border p-2 rounded text-sm"
         >
           {InterviewTypes.map((t) => (
@@ -119,14 +120,14 @@ export function InterviewSchedulingPanel() {
         <input
           type="date"
           value={formData.date}
-          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+          onChange={(e) => handleChange("date", e.target.value)}
           className="w-full border p-2 rounded text-sm"
         />
         <input
           type="text"
           placeholder="Interview notes..."
           value={formData.notes}
-          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          onChange={(e) => handleChange("notes", e.target.value)}
           className="w-full border p-2 rounded text-sm"
         />
         <button
@@ -191,6 +192,9 @@ export function AdvancedFilterPanel({ applications, onFilter }) {
     maxScore: 100,
     searchText: "",
   });
+  const handleFilterChange = React.useCallback((field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   const applyFilters = () => {
     const filtered = applyAdvancedFilter(applications, filters);
@@ -205,12 +209,12 @@ export function AdvancedFilterPanel({ applications, onFilter }) {
           type="text"
           placeholder="Search by name..."
           value={filters.searchText}
-          onChange={(e) => setFilters({ ...filters, searchText: e.target.value })}
+          onChange={(e) => handleFilterChange("searchText", e.target.value)}
           className="w-full border p-2 rounded text-sm"
         />
         <select
           value={filters.status}
-          onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+          onChange={(e) => handleFilterChange("status", e.target.value)}
           className="w-full border p-2 rounded text-sm"
         >
           <option value="">All Statuses</option>
@@ -223,14 +227,14 @@ export function AdvancedFilterPanel({ applications, onFilter }) {
             type="number"
             placeholder="Min Score"
             value={filters.minScore}
-            onChange={(e) => setFilters({ ...filters, minScore: parseInt(e.target.value) || 0 })}
+            onChange={(e) => handleFilterChange("minScore", parseInt(e.target.value) || 0)}
             className="flex-1 border p-2 rounded text-sm"
           />
           <input
             type="number"
             placeholder="Max Score"
             value={filters.maxScore}
-            onChange={(e) => setFilters({ ...filters, maxScore: parseInt(e.target.value) || 100 })}
+            onChange={(e) => handleFilterChange("maxScore", parseInt(e.target.value) || 100)}
             className="flex-1 border p-2 rounded text-sm"
           />
         </div>
@@ -249,6 +253,9 @@ export function AdvancedFilterPanel({ applications, onFilter }) {
 export function OfferManagementPanel({ applications }) {
   const [offers, setOffers] = React.useState([]);
   const [formData, setFormData] = React.useState({ candidateId: "", salary: "", startDate: "" });
+  const handleOfferChange = React.useCallback((field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   const generateOffer = () => {
     if (!formData.candidateId || !formData.salary) return;
@@ -268,20 +275,20 @@ export function OfferManagementPanel({ applications }) {
           type="text"
           placeholder="Candidate ID"
           value={formData.candidateId}
-          onChange={(e) => setFormData({ ...formData, candidateId: e.target.value })}
+          onChange={(e) => handleOfferChange("candidateId", e.target.value)}
           className="w-full border p-2 rounded text-sm"
         />
         <input
           type="text"
           placeholder="Salary (e.g., $80,000)"
           value={formData.salary}
-          onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+          onChange={(e) => handleOfferChange("salary", e.target.value)}
           className="w-full border p-2 rounded text-sm"
         />
         <input
           type="date"
           value={formData.startDate}
-          onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+          onChange={(e) => handleOfferChange("startDate", e.target.value)}
           className="w-full border p-2 rounded text-sm"
         />
         <button
@@ -348,6 +355,9 @@ export function AnalyticsReportsPanel({ applications }) {
 // SETTINGS & CUSTOMIZATION
 export function SettingsPanel() {
   const [settings, setSettings] = React.useState(getCompanySettings());
+  const handleSettingsChange = React.useCallback((field, value) => {
+    setSettings((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   const saveSettings = () => {
     updateCompanySettings(settings);
@@ -362,13 +372,13 @@ export function SettingsPanel() {
           type="text"
           placeholder="Company Name"
           value={settings.companyName || ""}
-          onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
+          onChange={(e) => handleSettingsChange("companyName", e.target.value)}
           className="w-full border p-2 rounded text-sm"
         />
         <input
           type="color"
           value={settings.primaryColor || "#1f7e4f"}
-          onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+          onChange={(e) => handleSettingsChange("primaryColor", e.target.value)}
           className="w-full border p-2 rounded text-sm"
         />
         <button
