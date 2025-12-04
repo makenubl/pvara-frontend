@@ -917,15 +917,31 @@ function PvaraPhase2() {
     />
   );
   
-  const InterviewSchedulingView = () => <InterviewSchedulingPanel state={state} onSchedule={(candidate, type, date) => addToast(`Interview scheduled for ${candidate} on ${date}`, { type: 'success' })} />;
+  const InterviewSchedulingView = () => (
+    <InterviewSchedulingPanel
+      applications={state.applications || []}
+    />
+  );
   
-  const PipelineView = () => <KanbanPipelineView state={state} onMoveCandidate={(candidate, newStage) => addToast(`${candidate} moved to ${newStage}`, { type: 'success' })} />;
+  const PipelineView = () => (
+    <KanbanPipelineView
+      applications={state.applications || []}
+    />
+  );
   
-  const OfferManagementView = () => <OfferManagementPanel state={state} onGenerateOffer={(candidate) => addToast(`Offer generated for ${candidate}`, { type: 'success' })} />;
+  const OfferManagementView = () => (
+    <OfferManagementPanel
+      applications={state.applications || []}
+    />
+  );
   
-  const AnalyticsReportsView = () => <AnalyticsReportsPanel state={state} onExport={(format) => addToast(`Report exported as ${format}`, { type: 'success' })} />;
+  const AnalyticsReportsView = () => (
+    <AnalyticsReportsPanel
+      applications={state.applications || []}
+    />
+  );
   
-  const SettingsView = () => <SettingsPanel state={state} onSaveSettings={(settings) => addToast("Settings updated successfully", { type: 'success' })} />;
+  const SettingsView = () => <SettingsPanel />;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
