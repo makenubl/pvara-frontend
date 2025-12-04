@@ -3,7 +3,6 @@ import logo from "./logo.png";
 import "./index.css";
 import { ToastProvider, useToast } from "./ToastContext";
 import { AnalyticsDashboard, AIScreeningPanel, InterviewEvaluationForm } from "./AnalyticsDashboard";
-import { calculateCandidateScore, autoSelectCandidates } from "./aiScreening";
 
 // ---------- Simple Auth (demo RBAC) ----------
 const AuthCtx = createContext();
