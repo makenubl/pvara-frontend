@@ -13,6 +13,7 @@ import TestManagement from "./TestManagement";
 import InterviewManagement from "./InterviewManagement";
 import OfferManagement from "./OfferManagement";
 import SettingsPanel from "./SettingsPanel";
+import SystemDashboard from "./SystemDashboard";
 import Toasts from "./Toasts";
 import { batchEvaluateApplications } from "./aiScreening";
 
@@ -1135,9 +1136,13 @@ function PvaraPhase2() {
               <div className="border-t border-gray-300/50 mt-4 pt-4 mb-2">
                 <div className="text-xs uppercase font-semibold text-gray-500 px-3 py-1">Staff Portal</div>
               </div>
+              <button onClick={() => { setView("system-dashboard"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "system-dashboard" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                System Dashboard
+              </button>
               <button onClick={() => { setView("dashboard"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "dashboard" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-                Dashboard
+                Analytics Dashboard
               </button>
             </>
           )}
@@ -2077,6 +2082,7 @@ function PvaraPhase2() {
         <div className="flex-1">
           {/* Modularized views for maintainability */}
           {view === "jobs" && <JobBoardView />}
+          {view === "system-dashboard" && <SystemDashboard />}
           {view === "dashboard" && (
             <div className="p-6">
               <h1 className="text-3xl font-bold text-gray-900 mb-4">Dashboard</h1>
