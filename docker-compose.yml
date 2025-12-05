@@ -1,0 +1,250 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Primary Database
+  postgres-primary:
+    image: postgres:15-alpine
+    container_name: pvara-postgres
+    environment:
+      POSTGRES_USER: pvara
+      POSTGRES_PASSWORD: pvara_secure_password_123
+      POSTGRES_DB: pvara_recruitment
+      POSTGRES_INITDB_ARGS: "-c max_connections=5000 -c shared_buffers=256MB"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./infrastructure/database/schema.sql:/docker-entrypoint-initdb.d/02-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pvara"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pvara-network
+    restart: unless-stopped
+
+  # Redis Cache & Session Store
+  redis:
+    image: redis:7-alpine
+    container_name: pvara-redis
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pvara-network
+    restart: unless-stopped
+
+  # Elasticsearch for Search & Analytics
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.0
+    container_name: pvara-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: curl -s http://localhost:9200 >/dev/null || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pvara-network
+    restart: unless-stopped
+
+  # Apache Kafka for Event Streaming
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: pvara-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_INIT_LIMIT: 5
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - pvara-network
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: pvara-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - pvara-network
+    restart: unless-stopped
+
+  # Kafka UI (Optional - for visual management)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: pvara-kafka-ui
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: pvara-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    ports:
+      - "8080:8080"
+    networks:
+      - pvara-network
+    restart: unless-stopped
+
+  # MinIO (S3-compatible storage for local development)
+  minio:
+    image: minio/minio:latest
+    container_name: pvara-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pvara-network
+    restart: unless-stopped
+
+  # Prometheus for Metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pvara-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - pvara-network
+    restart: unless-stopped
+
+  # Grafana for Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pvara-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+    networks:
+      - pvara-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Kong API Gateway
+  kong-db:
+    image: postgres:15-alpine
+    container_name: kong-db
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kong_password
+      POSTGRES_DB: kong
+    volumes:
+      - kong_db_data:/var/lib/postgresql/data
+    networks:
+      - pvara-network
+    restart: unless-stopped
+
+  kong:
+    image: kong:3.3-alpine
+    container_name: pvara-kong
+    depends_on:
+      - kong-db
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong_password
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    ports:
+      - "8000:8000"  # Proxy
+      - "8443:8443"  # Proxy SSL
+      - "8001:8001"  # Admin API
+      - "8444:8444"  # Admin API SSL
+    volumes:
+      - ./infrastructure/kong/kong.yml:/usr/local/kong/declarative/kong.yml
+    networks:
+      - pvara-network
+    restart: unless-stopped
+
+  # Kong Manager (Optional UI)
+  konga:
+    image: pantsel/konga:latest
+    container_name: pvara-konga
+    depends_on:
+      - kong
+    environment:
+      NODE_ENV: production
+      DB_ADAPTER: postgres
+      DB_HOST: kong-db
+      DB_USER: kong
+      DB_PASSWORD: kong_password
+      DB_DATABASE: konga
+    ports:
+      - "1337:1337"
+    networks:
+      - pvara-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  zookeeper_data:
+  kafka_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+  kong_db_data:
+
+networks:
+  pvara-network:
+    driver: bridge

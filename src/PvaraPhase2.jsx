@@ -14,6 +14,7 @@ import InterviewManagement from "./InterviewManagement";
 import OfferManagement from "./OfferManagement";
 import SettingsPanel from "./SettingsPanel";
 import Toasts from "./Toasts";
+import { ComprehensiveDashboard } from "./ComprehensiveDashboard";
 import { batchEvaluateApplications } from "./aiScreening";
 
 // ---------- Storage utilities ----------
@@ -2078,12 +2079,27 @@ function PvaraPhase2() {
           {/* Modularized views for maintainability */}
           {view === "jobs" && <JobBoardView />}
           {view === "dashboard" && (
-            <div className="p-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Dashboard</h1>
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <p className="text-gray-600">Welcome to PVARA Recruitment Portal</p>
-              </div>
-            </div>
+            <ComprehensiveDashboard 
+              state={state} 
+              onGenerateTestData={() => {
+                const newApps = generateTestApplications(state.jobs);
+                setState(prev => ({
+                  ...prev,
+                  applications: newApps,
+                  audit: [
+                    ...prev.audit,
+                    {
+                      id: `audit-${Date.now()}`,
+                      timestamp: new Date().toISOString(),
+                      user: user?.username || 'system',
+                      action: 'GENERATE_TEST_DATA',
+                      details: `Generated ${newApps.length} test applications`,
+                    }
+                  ]
+                }));
+                addToast(`Generated ${newApps.length} test applications`, { type: 'success' });
+              }}
+            />
           )}
           {view === "apply" && <ApplicationForm onSubmit={submitApplication} jobs={state.jobs} />}
           {(view === "candidate-login" || view === "my-apps") && !candidateSession && (
