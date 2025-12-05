@@ -673,11 +673,11 @@ function PvaraPhase2() {
     addToast("Job created (local)", { type: "success" });
   }, [editingJobId, jobForm, addToast, state]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function audit(action, details) {
+  const audit = useCallback((action, details) => {
     // CORRECTED: use a template literal so JS parses it
     const rec = { id: `au-${Date.now()}`, action, details, ts: new Date().toISOString(), user: user?.username || "anon" };
     setState((s) => ({ ...s, audit: [rec, ...(s.audit || [])] }));
-  }
+  }, [user]);
 
   function normalizeJobFormForSave(form) {
     const openingsNum = form.openings === "" ? null : Number(form.openings);
@@ -947,7 +947,7 @@ function PvaraPhase2() {
     }));
     audit("bulk-action", { selectedIds, action, count: selectedIds.length });
     addToast(`${selectedIds.length} candidate(s) moved to ${action}`, { type: "success" });
-  }, [addToast, state]);
+  }, [addToast, audit]);
 
   // Add note to application
   const handleAddNote = useCallback((candidateId, noteText) => {
@@ -968,7 +968,7 @@ function PvaraPhase2() {
     }));
     audit("add-note", { candidateId, noteText: noteText.substring(0, 50) });
     addToast("Note added successfully", { type: "success" });
-  }, [addToast, user, state]);
+  }, [addToast, user, audit]);
 
   // Export candidates to CSV
   const handleExport = useCallback((candidatesToExport) => {
@@ -1719,7 +1719,7 @@ function PvaraPhase2() {
     // Reset to page 1 when search changes
     React.useEffect(() => {
       setCurrentPage(1);
-    }, [jobSearch]);
+    }, [normalizedSearch]);
 
     const totalPages = Math.ceil(visibleJobs.length / jobsPerPage);
     const startIndex = (currentPage - 1) * jobsPerPage;
