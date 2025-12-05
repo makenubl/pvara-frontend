@@ -532,23 +532,6 @@ function PvaraPhase2() {
   
   // Candidate session (CNIC-based login)
   const [candidateSession, setCandidateSession] = useState(null);
-
-  // Reset to default state (for debugging)
-  const handleResetState = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setState(defaultState());
-    addToast("State reset to defaults with 20 jobs", "success");
-  }, [addToast]);
-
-  // Load sample data for testing
-  const handleLoadSampleData = useCallback(() => {
-    const testApps = generateTestApplications(state.jobs);
-    setState(prev => ({
-      ...prev,
-      applications: [...prev.applications, ...testApps]
-    }));
-    addToast(`✅ Loaded ${testApps.length} sample applications for testing`, "success");
-  }, [state.jobs, addToast]);
   
   // Handle candidate login (CNIC + phone/email verification)
   const handleCandidateLogin = useCallback((credentials) => {
@@ -661,6 +644,10 @@ function PvaraPhase2() {
 
   const handleHrSearchChange = useCallback((value) => {
     setHrSearch(value);
+  }, []);
+
+  const handleJobSearchChange = useCallback((value) => {
+    setJobSearch(value);
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1858,7 +1845,7 @@ function PvaraPhase2() {
                 placeholder="Search jobs by title, department, or location..." 
                 className="flex-1 px-4 py-3 bg-transparent border-none outline-none text-gray-800 placeholder-gray-500"
                 value={jobSearch}
-                onChange={(e) => setJobSearch(e.target.value)}
+                onChange={(e) => handleJobSearchChange(e.target.value)}
                 aria-label="Search jobs"
               />
               <button type="submit" className="glass-button px-6 py-2 rounded-lg font-medium text-gray-800 hover:text-green-700 transition mr-1">
@@ -1871,20 +1858,6 @@ function PvaraPhase2() {
             <div className="glass-button inline-block px-4 py-2 rounded-full text-sm font-medium text-gray-800">
               {visibleJobs.length} open position{visibleJobs.length !== 1 ? 's' : ''} available
             </div>
-            <button
-              onClick={handleLoadSampleData}
-              className="px-4 py-2 text-xs bg-blue-50 text-blue-700 rounded-full hover:bg-blue-100 transition font-medium"
-              title="Load sample applications for testing"
-            >
-              📊 Load Sample Data
-            </button>
-            <button
-              onClick={handleResetState}
-              className="px-4 py-2 text-xs bg-red-50 text-red-700 rounded-full hover:bg-red-100 transition"
-              title="Reset to default 20 jobs (clears localStorage)"
-            >
-              Reset Jobs
-            </button>
           </div>
         </div>
         
@@ -2035,16 +2008,7 @@ function PvaraPhase2() {
       <div className="flex gap-6 h-[calc(100vh-8rem)]">
         {/* Left Panel - Job List */}
         <div className="w-80 flex-shrink-0 bg-white rounded-lg shadow-lg p-4 overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-800">Open Positions</h2>
-            <button
-              onClick={handleLoadSampleData}
-              className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition font-medium"
-              title="Load sample applications for testing"
-            >
-              📊 Sample Data
-            </button>
-          </div>
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Open Positions</h2>
           <div className="space-y-2">
             {jobs.map(job => {
               const stats = jobStats.find(s => s.jobId === job.id);
