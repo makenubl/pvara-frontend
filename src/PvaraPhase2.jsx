@@ -14,6 +14,7 @@ import InterviewManagement from "./InterviewManagement";
 import OfferManagement from "./OfferManagement";
 import SettingsPanel from "./SettingsPanel";
 import SystemDashboard from "./SystemDashboard";
+import { AnalyticsDashboard } from "./AnalyticsDashboard";
 import Toasts from "./Toasts";
 import { batchEvaluateApplications } from "./aiScreening";
 
@@ -613,6 +614,16 @@ function PvaraPhase2() {
     }));
     addToast(`AI evaluated ${unevaluatedCount} applications`, "success");
   }, [state.applications, state.jobs, user, addToast]);
+
+  const generateTestData = useCallback(() => {
+    if (state.applications.length > 0) {
+      addToast("Test data already exists", "info");
+      return;
+    }
+    const newApps = generateTestApplications(state.jobs);
+    setState(prev => ({ ...prev, applications: newApps }));
+    addToast(`Generated ${newApps.length} test applications`, "success");
+  }, [state.applications.length, state.jobs, addToast]);
 
   const [view, setView] = useState("jobs");
   const [selectedJobId, setSelectedJobId] = useState(null);
@@ -2084,12 +2095,10 @@ function PvaraPhase2() {
           {view === "jobs" && <JobBoardView />}
           {view === "system-dashboard" && <SystemDashboard />}
           {view === "dashboard" && (
-            <div className="p-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Dashboard</h1>
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <p className="text-gray-600">Welcome to PVARA Recruitment Portal</p>
-              </div>
-            </div>
+            <AnalyticsDashboard 
+              state={state} 
+              onGenerateTestData={generateTestData}
+            />
           )}
           {view === "apply" && <ApplicationForm onSubmit={submitApplication} jobs={state.jobs} />}
           {(view === "candidate-login" || view === "my-apps") && !candidateSession && (
