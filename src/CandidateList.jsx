@@ -97,6 +97,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
       all: all.filter(c => c.status !== 'rejected').length,
       new: all.filter(c => (c.status || 'submitted') === 'submitted').length,
       screening: all.filter(c => c.status === 'screening').length,
+      test: all.filter(c => c.status === 'test-invited').length,
       interview: all.filter(c => c.status === 'interview' || c.status === 'phone-interview').length,
       rejected: all.filter(c => c.status === 'rejected').length,
       offer: all.filter(c => c.status === 'offer').length,
@@ -240,6 +241,72 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
           </div>
         </div>
         
+        {/* Sequential Workflow Banner */}
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-200 mt-4">
+          <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Recruitment Pipeline Workflow
+          </h3>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full bg-gray-600 text-white flex items-center justify-center font-bold text-sm">1</div>
+                <div className="text-xs font-medium text-gray-700 mt-1 whitespace-nowrap">New</div>
+                <div className="text-xs text-gray-500">{statusCounts.new}</div>
+              </div>
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full bg-yellow-600 text-white flex items-center justify-center font-bold text-sm">2</div>
+                <div className="text-xs font-medium text-gray-700 mt-1 whitespace-nowrap">AI Screening</div>
+                <div className="text-xs text-gray-500">{statusCounts.screening}</div>
+              </div>
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-sm">3</div>
+                <div className="text-xs font-medium text-gray-700 mt-1 whitespace-nowrap">Test</div>
+                <div className="text-xs text-gray-500">{statusCounts.test}</div>
+              </div>
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">4</div>
+                <div className="text-xs font-medium text-gray-700 mt-1 whitespace-nowrap">Interview</div>
+                <div className="text-xs text-gray-500">{statusCounts.interview}</div>
+              </div>
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-sm">5</div>
+                <div className="text-xs font-medium text-gray-700 mt-1 whitespace-nowrap">Offer</div>
+                <div className="text-xs text-gray-500">{statusCounts.offer}</div>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-gray-600 mt-3 italic">
+            <strong>Sequential Workflow:</strong> HR Review → AI Screening → Test Management → Interview Management → Offer Management. Each stage automatically progresses candidates to the next upon completion.
+          </p>
+        </div>
+        
         {/* Status Filter Tabs */}
         <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
           <button
@@ -374,16 +441,10 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => handleBulkAction('interview')}
-              className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-            >
-              Move to Interview
-            </button>
-            <button
               onClick={() => handleBulkAction('screening')}
-              className="px-3 py-1.5 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700"
+              className="px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
             >
-              Move to Screening
+              Move to AI Screening
             </button>
             <button
               onClick={() => handleBulkAction('rejected')}
@@ -523,8 +584,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
                 <div className="flex gap-2 flex-wrap">
                   {onStatusChange && (
                     <>
-                      <button className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700" onClick={() => onStatusChange(c.id, "interview")}>Interview</button>
-                      <button className="px-2 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700" onClick={() => onStatusChange(c.id, "screening")}>Screen</button>
+                      <button className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700" onClick={() => onStatusChange(c.id, "screening")}>Move to AI Screening</button>
                       <button className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700" onClick={() => onStatusChange(c.id, "rejected")}>Reject</button>
                     </>
                   )}
