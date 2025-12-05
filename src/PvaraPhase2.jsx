@@ -7,11 +7,12 @@ import JobList from "./JobList";
 import CandidateList from "./CandidateList";
 import MyCandidateApplications from "./MyCandidateApplications";
 import CandidateLogin from "./CandidateLogin";
-import { AnalyticsDashboard } from "./AnalyticsDashboard";
-import InterviewRubric from "./InterviewRubric";
 import AuditLog from "./AuditLog";
 import ApplicationForm from "./ApplicationForm";
-import ShortlistPanel from "./ShortlistPanel";
+import TestManagement from "./TestManagement";
+import InterviewManagement from "./InterviewManagement";
+import OfferManagement from "./OfferManagement";
+import SettingsPanel from "./SettingsPanel";
 import Toasts from "./Toasts";
 import { batchEvaluateApplications } from "./aiScreening";
 
@@ -505,7 +506,25 @@ function defaultState() {
     candidates: [], // Array of candidate profiles keyed by CNIC
     shortlists: [], 
     audit: [], 
-    settings: { scoring: { education: 40, experience: 40, interview: 20 } } 
+    settings: { 
+      scoring: { education: 40, experience: 40, interview: 20 },
+      email: {
+        enabled: false,
+        provider: 'gmail',
+        smtpHost: 'smtp.gmail.com',
+        smtpPort: '587',
+        smtpUser: '',
+        smtpPassword: '',
+        fromEmail: '',
+        fromName: 'PVARA Recruitment'
+      },
+      system: {
+        autoEmailOnSubmit: true,
+        autoEmailOnStatusChange: true,
+        requireApprovalForOffers: false,
+        allowCandidateWithdrawal: true
+      }
+    } 
   };
 }
 
@@ -1175,21 +1194,21 @@ function PvaraPhase2() {
             </button>
           )}
           {auth.hasRole(['hr','admin','recruiter']) && (
-            <button onClick={() => { setView("ai-screening"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "ai-screening" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-              AI Screening
+            <button onClick={() => { setView("test-management"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "test-management" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"/></svg>
+              Test Management
             </button>
           )}
           {auth.hasRole(['hr','admin','recruiter']) && (
-            <button onClick={() => { setView("analytics"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "analytics" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-              Analytics
+            <button onClick={() => { setView("interview-management"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "interview-management" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 0 0-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 0 1 5.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 0 1 9.288 0M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm6 3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/></svg>
+              Interview Management
             </button>
           )}
           {auth.hasRole(['hr','admin','recruiter']) && (
-            <button onClick={() => { setView("shortlists"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "shortlists" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9 12 2" /></svg>
-              Shortlists
+            <button onClick={() => { setView("offer-management"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "offer-management" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12 11 14 15 10"/><circle cx="12" cy="12" r="9"/></svg>
+              Offer Management
             </button>
           )}
           {auth.hasRole(['hr','admin']) && (
@@ -1204,26 +1223,6 @@ function PvaraPhase2() {
               <div className="text-xs uppercase font-semibold text-gray-600 px-3 py-1">Advanced</div>
             {auth.hasRole(['hr','admin','recruiter']) && (
               <>
-                <button onClick={() => { setView("emails"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "emails" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                  Emails
-                </button>
-                <button onClick={() => { setView("scheduling"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "scheduling" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                  Interviews
-                </button>
-                <button onClick={() => { setView("pipeline"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "pipeline" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                  Pipeline
-                </button>
-                <button onClick={() => { setView("offers"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "offers" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                  Offers
-                </button>
-                <button onClick={() => { setView("reports"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "reports" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>
-                  Reports
-                </button>
                 <button onClick={() => { setView("settings"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "settings" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                   Settings
@@ -1987,6 +1986,12 @@ function PvaraPhase2() {
   function HRReviewPanel({ jobs, applications, onStatusChange, onAIEvaluate, onBulkAction, onAddNote, onExport }) {
     const [selectedJobId, setSelectedJobId] = React.useState(jobs[0]?.id || null);
     
+    const handleMoveToTest = (candidateIds) => {
+      candidateIds.forEach(id => {
+        onStatusChange(id, 'test-invited');
+      });
+    };
+    
     const selectedJob = jobs.find(j => j.id === selectedJobId);
     const filteredApplications = applications.filter(app => app.jobId === selectedJobId);
     
@@ -2090,6 +2095,8 @@ function PvaraPhase2() {
                   onBulkAction={onBulkAction}
                   onAddNote={onAddNote}
                   onExport={onExport}
+                  onMoveToTest={handleMoveToTest}
+                  showStageActions={true}
                 />
               )}
             </>
@@ -2110,7 +2117,14 @@ function PvaraPhase2() {
         <div className="flex-1">
           {/* Modularized views for maintainability */}
           {view === "jobs" && <JobBoardView />}
-          {view === "dashboard" && <AnalyticsDashboard state={state} onGenerateTestData={handleGenerateTestData} />}
+          {view === "dashboard" && (
+            <div className="p-6">
+              <h1 className="text-3xl font-bold text-gray-900 mb-4">Dashboard</h1>
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <p className="text-gray-600">Welcome to PVARA Recruitment Portal</p>
+              </div>
+            </div>
+          )}
           {view === "apply" && <ApplicationForm onSubmit={submitApplication} jobs={state.jobs} />}
           {(view === "candidate-login" || view === "my-apps") && !candidateSession && (
             <CandidateLogin 
@@ -2137,9 +2151,143 @@ function PvaraPhase2() {
               onExport={handleExport} 
             />
           )}
-          {view === "ai-screening" && <InterviewRubric rubric={state.rubric} onEvaluate={submitInterviewEvaluation} jobs={state.jobs} applications={state.applications} selectedJobForAI={selectedJobForAI} handleSelectJobForAI={handleSelectJobForAI} />}
-          {view === "analytics" && <AnalyticsDashboard state={state} onGenerateTestData={handleGenerateTestData} />}
-          {view === "shortlists" && <ShortlistPanel shortlist={state.shortlists} onUpdate={createShortlist} />}
+          {view === "test-management" && (
+            <TestManagement 
+              applications={state.applications}
+              jobs={state.jobs}
+              onSendTest={(candidateIds) => {
+                candidateIds.forEach(id => {
+                  changeApplicationStatus(id, 'test-invited');
+                  audit('send-test', { candidateId: id });
+                });
+                addToast(`Test invitation sent to ${candidateIds.length} candidate(s)`, { type: 'success' });
+              }}
+              onRecordTestResult={(candidateId, results) => {
+                const newStatus = results.passed ? 'interview' : 'rejected';
+                setState(s => ({
+                  ...s,
+                  applications: s.applications.map(a => 
+                    a.id === candidateId 
+                      ? { ...a, testResults: { ...results, recorded: true, status: 'completed', completedAt: new Date().toISOString() }, status: newStatus }
+                      : a
+                  )
+                }));
+                audit('record-test-result', { candidateId, passed: results.passed, score: results.score });
+                addToast(results.passed ? 'Test passed - moved to interview stage' : 'Test failed - candidate rejected', { type: results.passed ? 'success' : 'info' });
+              }}
+            />
+          )}
+          {view === "interview-management" && (
+            <InterviewManagement 
+              applications={state.applications}
+              jobs={state.jobs}
+              onInterviewFeedback={(candidateId, feedback) => {
+                const overallScore = ((feedback.technicalRating + feedback.communicationRating + feedback.cultureFitRating + feedback.problemSolvingRating) / 4).toFixed(1);
+                setState(s => ({
+                  ...s,
+                  applications: s.applications.map(a => 
+                    a.id === candidateId 
+                      ? { ...a, interviewFeedback: { ...feedback, overallScore, timestamp: new Date().toISOString() } }
+                      : a
+                  )
+                }));
+                audit('interview-feedback', { candidateId, overallScore, recommendation: feedback.recommendation });
+                addToast(`Interview feedback recorded - Score: ${overallScore}/10`, { type: 'success' });
+              }}
+              onAddToShortlist={(candidateIds) => {
+                candidateIds.forEach(id => audit('add-to-shortlist', { candidateId: id }));
+                addToast(`Added ${candidateIds.length} candidate(s) to shortlist`, { type: 'success' });
+              }}
+            />
+          )}
+          {view === "offer-management" && (
+            <OfferManagement 
+              applications={state.applications}
+              jobs={state.jobs}
+              onExtendOffer={(candidateId, offerDetails) => {
+                setState(s => ({
+                  ...s,
+                  applications: s.applications.map(a => 
+                    a.id === candidateId 
+                      ? { ...a, status: 'offer', offer: { ...offerDetails, status: 'pending', extendedAt: new Date().toISOString() } }
+                      : a
+                  )
+                }));
+                audit('extend-offer', { candidateId, salary: offerDetails.salary });
+                addToast('Job offer extended successfully', { type: 'success' });
+              }}
+              onAcceptOffer={(candidateId) => {
+                setState(s => ({
+                  ...s,
+                  applications: s.applications.map(a => 
+                    a.id === candidateId 
+                      ? { ...a, offer: { ...a.offer, status: 'accepted', acceptedAt: new Date().toISOString() } }
+                      : a
+                  )
+                }));
+                audit('accept-offer', { candidateId });
+                addToast('🎉 Offer accepted! Begin onboarding process.', { type: 'success' });
+              }}
+              onRejectOffer={(candidateId) => {
+                setState(s => ({
+                  ...s,
+                  applications: s.applications.map(a => 
+                    a.id === candidateId 
+                      ? { ...a, offer: { ...a.offer, status: 'rejected', rejectedAt: new Date().toISOString() } }
+                      : a
+                  )
+                }));
+                audit('reject-offer', { candidateId });
+                addToast('Offer rejected by candidate', { type: 'info' });
+              }}
+              onWithdrawOffer={(candidateId) => {
+                setState(s => ({
+                  ...s,
+                  applications: s.applications.map(a => 
+                    a.id === candidateId 
+                      ? { ...a, offer: { ...a.offer, status: 'withdrawn', withdrawnAt: new Date().toISOString() } }
+                      : a
+                  )
+                }));
+                audit('withdraw-offer', { candidateId });
+                addToast('Offer withdrawn successfully', { type: 'info' });
+              }}
+            />
+          )}
+
+          {view === "settings" && (
+            <SettingsPanel 
+              settings={state.settings}
+              onUpdateSettings={(newSettings) => {
+                setState(s => ({ ...s, settings: newSettings }));
+                addToast('Settings updated successfully', { type: 'success' });
+                audit('update-settings', { settingsUpdated: Object.keys(newSettings) });
+              }}
+              onTestEmail={async (testEmail) => {
+                try {
+                  const response = await fetch('http://localhost:5000/api/send-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      to: testEmail,
+                      subject: 'PVARA Test Email',
+                      body: 'This is a test email from PVARA Recruitment System. If you received this, your email configuration is working correctly!',
+                      candidateName: 'Test User'
+                    })
+                  });
+                  
+                  if (response.ok) {
+                    addToast('✅ Test email sent successfully! Check your inbox.', { type: 'success' });
+                  } else {
+                    addToast('❌ Failed to send test email. Check your email settings.', { type: 'error' });
+                  }
+                } catch (error) {
+                  console.error('Test email error:', error);
+                  addToast('❌ Email server not reachable. Make sure backend is running.', { type: 'error' });
+                }
+              }}
+            />
+          )}
           {view === "audit" && <AuditLog auditRecords={state.audit} />}
         </div>
 

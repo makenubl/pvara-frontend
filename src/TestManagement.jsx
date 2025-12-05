@@ -109,23 +109,63 @@ function TestManagement({
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Test Management</h1>
-        <p className="text-gray-600">Send tests and record results for screened candidates</p>
+        <p className="text-gray-600">Manage technical assessments for screened candidates</p>
         
-        {/* Pipeline Position Indicator */}
-        <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-sm">
-            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <div className="font-semibold text-purple-900">Pipeline Stage 3 of 5</div>
-              <div className="text-purple-700 text-xs">
-                <span className="opacity-50">AI Screening →</span> 
-                <span className="font-bold"> Testing (Current) </span>
-                <span className="opacity-50">→ Interview → Offer</span>
+        {/* Sequential Workflow Indicator */}
+        <div className="mt-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2">
+            <div className="flex items-center gap-2 flex-shrink-0 opacity-50">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-gray-400 text-white flex items-center justify-center font-bold text-xs">1</div>
+                <div className="text-xs font-medium text-gray-600 mt-1">HR Review</div>
               </div>
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-shrink-0 opacity-50">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-yellow-400 text-white flex items-center justify-center font-bold text-xs">2</div>
+                <div className="text-xs font-medium text-gray-600 mt-1">AI Screening</div>
+              </div>
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold shadow-lg ring-4 ring-purple-200">3</div>
+                <div className="text-xs font-bold text-purple-900 mt-1">Test Stage</div>
+                <div className="text-xs text-purple-600 font-medium">Current</div>
+              </div>
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-shrink-0 opacity-30">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-blue-400 text-white flex items-center justify-center font-bold text-xs">4</div>
+                <div className="text-xs font-medium text-gray-600 mt-1">Interview</div>
+              </div>
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex flex-col items-center flex-shrink-0 opacity-30">
+              <div className="w-8 h-8 rounded-full bg-green-400 text-white flex items-center justify-center font-bold text-xs">5</div>
+              <div className="text-xs font-medium text-gray-600 mt-1">Offer</div>
             </div>
           </div>
+          <p className="text-xs text-gray-700 mt-3 italic">
+            <svg className="w-4 h-4 inline-block text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <strong> Stage 3 of 5:</strong> Send tests to screened candidates and record results. Passing candidates automatically move to Interview Management.
+          </p>
         </div>
       </div>
 
@@ -360,47 +400,73 @@ function TestManagement({
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{candidate.applicant?.name || candidate.name}</div>
                       <div className="text-sm text-gray-500">{candidate.applicant?.email || candidate.email}</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {candidate.applicant?.degree || candidate.degree} • {candidate.applicant?.experienceYears || candidate.experienceYears} yrs exp
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{getJobTitle(candidate.jobId)}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-sm text-gray-700">{getJobTitle(candidate.jobId)}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Applied: {new Date(candidate.submittedAt || candidate.createdAt || Date.now()).toLocaleDateString()}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         {candidate.aiScore?.toFixed(1) || 'N/A'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {candidate.status === 'screening' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Ready to Send
-                        </span>
-                      )}
-                      {candidate.status === 'test-invited' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          Test Sent
-                        </span>
-                      )}
-                      {candidate.testResults?.status === 'completed' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                          Completed
-                        </span>
-                      )}
+                      <div className="space-y-1">
+                        {candidate.status === 'screening' && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Ready to Send
+                          </span>
+                        )}
+                        {candidate.status === 'test-invited' && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Test Sent
+                          </span>
+                        )}
+                        {candidate.testResults?.status === 'completed' && (
+                          <>
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              Completed
+                            </span>
+                            {candidate.testResults?.recorded && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                Score: <strong className={candidate.testResults.passed ? 'text-green-600' : 'text-red-600'}>{candidate.testResults.score}%</strong>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
-                      {candidate.status === 'screening' && (
-                        <button
-                          onClick={() => onSendTest([candidate.id])}
-                          className="px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-                        >
-                          Send Test
-                        </button>
-                      )}
-                      {candidate.testResults?.status === 'completed' && (
-                        <button
-                          onClick={() => handleOpenRecordResults(candidate)}
-                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                        >
-                          Record Results
-                        </button>
-                      )}
+                      <div className="flex gap-2">
+                        {candidate.status === 'screening' && (
+                          <button
+                            onClick={() => onSendTest([candidate.id])}
+                            className="px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
+                          >
+                            Send Test
+                          </button>
+                        )}
+                        {candidate.testResults?.status === 'completed' && !candidate.testResults?.recorded && (
+                          <button
+                            onClick={() => handleOpenRecordResults(candidate)}
+                            className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                          >
+                            Record Results
+                          </button>
+                        )}
+                        {candidate.testResults?.recorded && (
+                          <div className="text-xs">
+                            <span className={`inline-flex items-center px-2 py-1 rounded ${candidate.testResults.passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {candidate.testResults.passed ? '✓ Passed → Interview' : '✗ Failed'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -458,6 +524,27 @@ function TestManagement({
                 </label>
               </div>
 
+              {/* Next Stage Indicator */}
+              <div className={`p-3 rounded-lg border-2 ${
+                testResultForm.passed 
+                  ? 'bg-green-50 border-green-200' 
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                <div className="flex items-center gap-2 text-sm font-medium mb-1">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className={testResultForm.passed ? 'text-green-800' : 'text-red-800'}>
+                    Next Action
+                  </span>
+                </div>
+                <p className={`text-xs ${testResultForm.passed ? 'text-green-700' : 'text-red-700'}`}>
+                  {testResultForm.passed 
+                    ? '✅ Candidate will be automatically moved to Interview Management stage'
+                    : '❌ Candidate will be automatically rejected'}
+                </p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Notes (Optional)
@@ -482,9 +569,27 @@ function TestManagement({
               <button
                 onClick={handleRecordResults}
                 disabled={!testResultForm.score}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`px-4 py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
+                  testResultForm.passed
+                    ? 'bg-gradient-to-r from-blue-600 to-green-600 text-white hover:from-blue-700 hover:to-green-700'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
               >
-                Save Results
+                {testResultForm.passed ? (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    Move to Interview
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Reject Candidate
+                  </>
+                )}
               </button>
             </div>
           </div>

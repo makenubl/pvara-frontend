@@ -1,6 +1,6 @@
 import React from "react";
 
-const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction, onAddNote, onExport }) => {
+const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction, onAddNote, onExport, onMoveToTest, showStageActions }) => {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [selectedIds, setSelectedIds] = React.useState([]);
   const [showCompareModal, setShowCompareModal] = React.useState(false);
@@ -439,13 +439,29 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
           <div className="font-semibold text-green-900">
             {selectedIds.length} candidate{selectedIds.length > 1 ? 's' : ''} selected
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleBulkAction('screening')}
-              className="px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
-            >
-              Move to AI Screening
-            </button>
+          <div className="flex gap-2 flex-wrap">
+            {showStageActions && onMoveToTest && (
+              <button
+                onClick={() => {
+                  onMoveToTest(selectedIds);
+                  setSelectedIds([]);
+                }}
+                className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm hover:from-purple-700 hover:to-blue-700 font-medium flex items-center gap-1 shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                Move to Test ({selectedIds.length})
+              </button>
+            )}
+            {!showStageActions && (
+              <button
+                onClick={() => handleBulkAction('screening')}
+                className="px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
+              >
+                Move to AI Screening
+              </button>
+            )}
             <button
               onClick={() => handleBulkAction('rejected')}
               className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
@@ -582,14 +598,28 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
                 )}
                 
                 <div className="flex gap-2 flex-wrap">
-                  {onStatusChange && (
+                  {showStageActions && c.status === 'screening' && onMoveToTest && (
+                    <button 
+                      className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-xs hover:from-purple-700 hover:to-blue-700 font-medium flex items-center gap-1 shadow-sm"
+                      onClick={() => onMoveToTest([c.id])}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                      Move to Test
+                    </button>
+                  )}
+                  {onStatusChange && !showStageActions && (
                     <>
                       <button className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700" onClick={() => onStatusChange(c.id, "screening")}>Move to AI Screening</button>
                       <button className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700" onClick={() => onStatusChange(c.id, "rejected")}>Reject</button>
                     </>
                   )}
+                  {onStatusChange && c.status !== 'rejected' && (
+                    <button className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700" onClick={() => onStatusChange(c.id, "rejected")}>Reject</button>
+                  )}
                   <button 
-                    className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700"
+                    className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700"
                     onClick={() => setShowNotesModal(c.id)}
                   >
                     Add Note

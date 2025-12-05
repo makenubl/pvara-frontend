@@ -66,10 +66,6 @@ function InterviewManagement({
     setFeedbackFor(null);
   };
 
-  const handleAddToShortlist = (candidateId) => {
-    onAddToShortlist([candidateId]);
-  };
-
   const statusCounts = {
     pending: applications.filter(a => (a.status === 'interview' || a.status === 'phone-interview') && !a.interviewFeedback && (!selectedJob || selectedJob === 'all' || a.jobId === selectedJob)).length,
     completed: applications.filter(a => (a.status === 'interview' || a.status === 'phone-interview') && a.interviewFeedback && (!selectedJob || selectedJob === 'all' || a.jobId === selectedJob)).length
@@ -80,33 +76,67 @@ function InterviewManagement({
     return job ? job.title : 'Unknown Position';
   };
 
-  const calculateOverallScore = (feedback) => {
-    const total = feedback.technicalRating + feedback.communicationRating + 
-                  feedback.cultureFitRating + feedback.problemSolvingRating;
-    return (total / 4).toFixed(1);
-  };
-
   return (
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Interview Management</h1>
         <p className="text-gray-600">Conduct interviews and provide feedback on candidates</p>
         
-        {/* Pipeline Position Indicator */}
-        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-sm">
-            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <div className="font-semibold text-blue-900">Pipeline Stage 4 of 5</div>
-              <div className="text-blue-700 text-xs">
-                <span className="opacity-50">AI Screening → Testing →</span> 
-                <span className="font-bold"> Interview (Current) </span>
-                <span className="opacity-50">→ Offer</span>
+        {/* Sequential Workflow Indicator */}
+        <div className="mt-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2">
+            <div className="flex items-center gap-2 flex-shrink-0 opacity-50">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-gray-400 text-white flex items-center justify-center font-bold text-xs">1</div>
+                <div className="text-xs font-medium text-gray-600 mt-1">HR Review</div>
               </div>
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-shrink-0 opacity-50">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-yellow-400 text-white flex items-center justify-center font-bold text-xs">2</div>
+                <div className="text-xs font-medium text-gray-600 mt-1">AI Screening</div>
+              </div>
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-shrink-0 opacity-50">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-purple-400 text-white flex items-center justify-center font-bold text-xs">3</div>
+                <div className="text-xs font-medium text-gray-600 mt-1">Test</div>
+              </div>
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-lg ring-4 ring-blue-200">4</div>
+                <div className="text-xs font-bold text-blue-900 mt-1">Interview</div>
+                <div className="text-xs text-blue-600 font-medium">Current</div>
+              </div>
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+            
+            <div className="flex flex-col items-center flex-shrink-0 opacity-30">
+              <div className="w-8 h-8 rounded-full bg-green-400 text-white flex items-center justify-center font-bold text-xs">5</div>
+              <div className="text-xs font-medium text-gray-600 mt-1">Offer</div>
             </div>
           </div>
+          <p className="text-xs text-gray-700 mt-3 italic">
+            <svg className="w-4 h-4 inline-block text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <strong> Stage 4 of 5:</strong> Conduct interviews and provide feedback. Candidates with hire recommendation or score ≥7.0 become eligible for Offer Management.
+          </p>
         </div>
       </div>
 
@@ -432,6 +462,46 @@ function InterviewManagement({
                 </select>
               </div>
 
+              {/* Next Stage Indicator */}
+              {(() => {
+                const overallScore = ((feedbackForm.technicalRating + feedbackForm.communicationRating + feedbackForm.cultureFitRating + feedbackForm.problemSolvingRating) / 4).toFixed(1);
+                const isEligibleForOffer = feedbackForm.recommendation === 'hire' || parseFloat(overallScore) >= 7.0;
+                
+                return (
+                  <div className={`p-3 rounded-lg border-2 ${
+                    isEligibleForOffer
+                      ? 'bg-green-50 border-green-200' 
+                      : feedbackForm.recommendation === 'maybe'
+                      ? 'bg-yellow-50 border-yellow-200'
+                      : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <div className="flex items-center gap-2 text-sm font-medium mb-1">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className={
+                        isEligibleForOffer ? 'text-green-800' :
+                        feedbackForm.recommendation === 'maybe' ? 'text-yellow-800' :
+                        'text-gray-800'
+                      }>
+                        Next Action
+                      </span>
+                    </div>
+                    <p className={`text-xs ${
+                      isEligibleForOffer ? 'text-green-700' :
+                      feedbackForm.recommendation === 'maybe' ? 'text-yellow-700' :
+                      'text-gray-700'
+                    }`}>
+                      {isEligibleForOffer 
+                        ? '✅ Candidate is eligible for Offer Management (score ≥7.0 or "Hire" recommendation)'
+                        : feedbackForm.recommendation === 'maybe'
+                        ? '⚠️ Candidate marked as "Maybe" - will remain in interview stage for further review'
+                        : '📋 Candidate will remain in system for potential future consideration'}
+                    </p>
+                  </div>
+                );
+              })()}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Interview Notes
@@ -455,7 +525,7 @@ function InterviewManagement({
               </button>
               <button
                 onClick={handleSubmitFeedback}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg hover:from-blue-700 hover:to-green-700 font-medium"
               >
                 Save Feedback
               </button>
