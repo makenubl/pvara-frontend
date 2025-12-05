@@ -604,7 +604,7 @@ function PvaraPhase2() {
     addToast(`AI evaluated ${unevaluatedCount} applications`, "success");
   }, [state.applications, state.jobs, user, addToast]);
 
-  const [view, setView] = useState("jobs");
+  const [view, setView] = useState("admin");
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [editingJobId, setEditingJobId] = useState(null);
   const [jobForm, setJobForm] = useState(emptyJobForm);
