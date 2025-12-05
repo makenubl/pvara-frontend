@@ -525,6 +525,16 @@ function PvaraPhase2() {
     setState(defaultState());
     addToast("State reset to defaults with 20 jobs", "success");
   }, [addToast]);
+
+  // Load sample data for testing
+  const handleLoadSampleData = useCallback(() => {
+    const testApps = generateTestApplications(state.jobs);
+    setState(prev => ({
+      ...prev,
+      applications: [...prev.applications, ...testApps]
+    }));
+    addToast(`✅ Loaded ${testApps.length} sample applications for testing`, "success");
+  }, [state.jobs, addToast]);
   
   // Handle candidate login (CNIC + phone/email verification)
   const handleCandidateLogin = useCallback((credentials) => {
@@ -1848,6 +1858,13 @@ function PvaraPhase2() {
               {visibleJobs.length} open position{visibleJobs.length !== 1 ? 's' : ''} available
             </div>
             <button
+              onClick={handleLoadSampleData}
+              className="px-4 py-2 text-xs bg-blue-50 text-blue-700 rounded-full hover:bg-blue-100 transition font-medium"
+              title="Load sample applications for testing"
+            >
+              📊 Load Sample Data
+            </button>
+            <button
               onClick={handleResetState}
               className="px-4 py-2 text-xs bg-red-50 text-red-700 rounded-full hover:bg-red-100 transition"
               title="Reset to default 20 jobs (clears localStorage)"
@@ -2004,7 +2021,16 @@ function PvaraPhase2() {
       <div className="flex gap-6 h-[calc(100vh-8rem)]">
         {/* Left Panel - Job List */}
         <div className="w-80 flex-shrink-0 bg-white rounded-lg shadow-lg p-4 overflow-y-auto">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">Open Positions</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-800">Open Positions</h2>
+            <button
+              onClick={handleLoadSampleData}
+              className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition font-medium"
+              title="Load sample applications for testing"
+            >
+              📊 Sample Data
+            </button>
+          </div>
           <div className="space-y-2">
             {jobs.map(job => {
               const stats = jobStats.find(s => s.jobId === job.id);
