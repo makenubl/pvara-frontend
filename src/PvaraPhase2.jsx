@@ -75,17 +75,30 @@ function LoginInline({ onLogin }) {
 }
 
 // ---------- Test Data Generator ----------
-function generateTestApplications(jobs) {
-  const firstNames = ["Ahmed", "Fatima", "Ali", "Ayesha", "Hassan", "Zainab", "Usman", "Mariam", "Bilal", "Sana", "Imran", "Nida", "Faisal", "Hira", "Kamran"];
-  const lastNames = ["Khan", "Ahmed", "Ali", "Hassan", "Hussain", "Shah", "Malik", "Rehman", "Iqbal", "Butt", "Siddiqui", "Rizvi", "Farooq", "Aziz", "Raza"];
-  const degrees = ["Bachelor in Computer Science", "Master in Finance", "Bachelor in Business Administration", "Master in Economics", "Bachelor in Engineering", "Master in Law", "Bachelor in Statistics", "PhD in Mathematics"];
-  const cities = ["Islamabad", "Karachi", "Lahore", "Rawalpindi", "Faisalabad"];
+function generateTestApplications(jobs, baseTime = Date.now()) {
+  const firstNames = ["Ahmed", "Fatima", "Ali", "Ayesha", "Hassan", "Zainab", "Usman", "Mariam", "Bilal", "Sana", "Imran", "Nida", "Faisal", "Hira", "Kamran", "Saad", "Aisha", "Omar", "Rabia", "Tariq"];
+  const lastNames = ["Khan", "Ahmed", "Ali", "Hassan", "Hussain", "Shah", "Malik", "Rehman", "Iqbal", "Butt", "Siddiqui", "Rizvi", "Farooq", "Aziz", "Raza", "Jamil", "Nadeem", "Karim", "Younis", "Saleem"];
+  const degrees = [
+    "Bachelor in Computer Science", 
+    "Master in Finance", 
+    "Bachelor in Business Administration", 
+    "Master in Economics", 
+    "Bachelor in Engineering", 
+    "Master in Law", 
+    "Bachelor in Statistics", 
+    "PhD in Mathematics",
+    "Master in Computer Science",
+    "Bachelor in Finance",
+    "Master in Cybersecurity",
+    "Bachelor in Accounting"
+  ];
+  const cities = ["Islamabad", "Karachi", "Lahore", "Rawalpindi", "Faisalabad", "Peshawar", "Multan"];
   
   const applications = [];
   const statuses = ["submitted", "screening", "phone-interview", "interview", "offer", "rejected"];
   
-  // Create 3-5 applications per job
-  jobs.slice(0, 8).forEach((job, jobIdx) => {
+  // Create 3-5 applications per job (all 20 jobs, not just 8)
+  jobs.forEach((job, jobIdx) => {
     const numApps = 3 + Math.floor(Math.random() * 3);
     for (let i = 0; i < numApps; i++) {
       const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
@@ -93,13 +106,13 @@ function generateTestApplications(jobs) {
       const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${Math.floor(Math.random() * 100)}@email.com`;
       
       applications.push({
-        id: `app-${Date.now()}-${jobIdx}-${i}`,
+        id: `app-${baseTime}-${jobIdx}-${i}-${Math.random().toString(36).substr(2, 9)}`,
         jobId: job.id,
         applicant: {
           name: `${firstName} ${lastName}`,
           email: email,
           cnic: `${35000 + Math.floor(Math.random() * 9999)}-${1000000 + Math.floor(Math.random() * 9999999)}-${Math.floor(Math.random() * 10)}`,
-          phone: `+92-300-${Math.floor(Math.random() * 9000000) + 1000000}`,
+          phone: `+92-30${Math.floor(Math.random() * 10)}-${Math.floor(Math.random() * 9000000) + 1000000}`,
           degree: degrees[Math.floor(Math.random() * degrees.length)],
           experienceYears: Math.floor(Math.random() * 15) + 3,
           address: `${Math.floor(Math.random() * 200) + 1} Street ${Math.floor(Math.random() * 50)}, ${cities[Math.floor(Math.random() * cities.length)]}`,
@@ -110,6 +123,7 @@ function generateTestApplications(jobs) {
         status: statuses[Math.min(Math.floor(Math.random() * statuses.length), 5)],
         aiScore: Math.floor(Math.random() * 40) + 60,
         createdAt: new Date(Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000).toISOString(),
+        notes: [],
       });
     }
   });
