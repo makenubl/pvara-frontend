@@ -584,16 +584,6 @@ function PvaraPhase2() {
     addToast(`Welcome back, ${candidate.name}!`, { type: "success" });
   }, [state.candidates, addToast]);
 
-  // Generate test applications
-  const handleGenerateTestData = useCallback(() => {
-    const testApps = generateTestApplications(state.jobs);
-    setState(prev => ({
-      ...prev,
-      applications: [...prev.applications, ...testApps]
-    }));
-    addToast(`Generated ${testApps.length} test applications`, "success");
-  }, [state.jobs, addToast]);
-
   // AI Batch Evaluation
   const handleAIEvaluation = useCallback(() => {
     const unevaluatedCount = state.applications.filter(
@@ -644,8 +634,6 @@ function PvaraPhase2() {
   const [hrSearch, setHrSearch] = useState("");
   const [jobSearch, setJobSearch] = useState("");
   const [selectedApps, setSelectedApps] = useState([]);
-  const [selectedJobForAI, setSelectedJobForAI] = useState(null);
-  const handleSelectJobForAI = useCallback((value) => setSelectedJobForAI(value), []);
 
   // Memoized handlers to prevent input focus loss
   // eslint-disable-next-line no-unused-vars
@@ -1046,34 +1034,6 @@ function PvaraPhase2() {
   }
   function closeDrawer() {
     setDrawer({ open: false, app: null });
-  }
-
-  // Handle interview evaluation submission with AI score calculation
-  function submitInterviewEvaluation(evaluation) {
-    const candidate = state.applications.find(a => a.id === evaluation.candidateId);
-    if (!candidate) return;
-
-    // Calculate interview score (1-10 weighted average)
-    const interviewScore = Object.values(evaluation.scores).reduce((a, b) => a + b) / Object.keys(evaluation.scores).length;
-
-    setState((s) => {
-      const apps = (s.applications || []).map((a) =>
-        a.id === evaluation.candidateId
-          ? {
-            ...a,
-            interviewScore: Math.round(interviewScore * 10),
-            interviewNotes: evaluation.notes,
-            interviewedAt: evaluation.timestamp,
-            evaluationScores: evaluation.scores,
-          }
-          : a
-      );
-      return { ...s, applications: apps };
-    });
-
-    audit("submit-evaluation", { appId: evaluation.candidateId, score: Math.round(interviewScore * 10) });
-    addToast("Interview evaluation saved", { type: "success" });
-    closeDrawer();
   }
 
   function toggleSelectApp(appId) {
