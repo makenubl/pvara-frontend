@@ -1,6 +1,6 @@
 import React from "react";
 
-const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction, onAddNote, onExport }) => {
+const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction, onAddNote, onExport, onInterviewFeedback }) => {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [selectedIds, setSelectedIds] = React.useState([]);
   const [showCompareModal, setShowCompareModal] = React.useState(false);
@@ -11,6 +11,14 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
   const [showRejected, setShowRejected] = React.useState(false);
   const [isAIScreening, setIsAIScreening] = React.useState(false);
   const [showAllCandidates, setShowAllCandidates] = React.useState(false);
+  const [showInterviewModal, setShowInterviewModal] = React.useState(null);
+  const [interviewFeedback, setInterviewFeedback] = React.useState({
+    technicalRating: 3,
+    communicationRating: 3,
+    cultureFitRating: 3,
+    comments: '',
+    recommendation: 'maybe'
+  });
   const itemsPerPage = 10;
   
   // Filter and search logic
@@ -169,6 +177,38 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
     setIsAIScreening(true);
     await onAIEvaluate?.();
     setIsAIScreening(false);
+  };
+
+  const handleOpenInterviewModal = (candidateId) => {
+    const candidate = candidates.find(c => c.id === candidateId);
+    if (candidate?.interviewFeedback) {
+      setInterviewFeedback(candidate.interviewFeedback);
+    } else {
+      setInterviewFeedback({
+        technicalRating: 3,
+        communicationRating: 3,
+        cultureFitRating: 3,
+        comments: '',
+        recommendation: 'maybe'
+      });
+    }
+    setShowInterviewModal(candidateId);
+  };
+
+  const handleSubmitInterview = () => {
+    if (!interviewFeedback.comments.trim()) {
+      alert('Please add interview comments');
+      return;
+    }
+    onInterviewFeedback?.(showInterviewModal, interviewFeedback);
+    setShowInterviewModal(null);
+    setInterviewFeedback({
+      technicalRating: 3,
+      communicationRating: 3,
+      cultureFitRating: 3,
+      comments: '',
+      recommendation: 'maybe'
+    });
   };
   
   return (
@@ -529,6 +569,13 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
                     </>
                   )}
                   <button 
+                    className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                    onClick={() => handleOpenInterviewModal(c.id)}
+                    title={c.interviewFeedback ? "View/Edit Feedback" : "Add Interview Feedback"}
+                  >
+                    {c.interviewFeedback ? '✓ Feedback' : 'Interview'}
+                  </button>
+                  <button 
                     className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700"
                     onClick={() => setShowNotesModal(c.id)}
                   >
@@ -602,6 +649,173 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
                   setNoteText("");
                 }}
                 className="flex-1 bg-gray-200 text-gray-700 py-2 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interview Feedback Modal */}
+      {showInterviewModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 my-8">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-gray-800">Interview Feedback</h3>
+              <button
+                onClick={() => setShowInterviewModal(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Technical Skills Rating */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Technical Skills
+                  <span className="ml-2 text-lg font-bold text-blue-600">{interviewFeedback.technicalRating}/5</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={interviewFeedback.technicalRating}
+                  onChange={(e) => setInterviewFeedback(prev => ({ ...prev, technicalRating: parseInt(e.target.value) }))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>Poor</span>
+                  <span>Fair</span>
+                  <span>Good</span>
+                  <span>Very Good</span>
+                  <span>Excellent</span>
+                </div>
+              </div>
+
+              {/* Communication Rating */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Communication Skills
+                  <span className="ml-2 text-lg font-bold text-green-600">{interviewFeedback.communicationRating}/5</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={interviewFeedback.communicationRating}
+                  onChange={(e) => setInterviewFeedback(prev => ({ ...prev, communicationRating: parseInt(e.target.value) }))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>Poor</span>
+                  <span>Fair</span>
+                  <span>Good</span>
+                  <span>Very Good</span>
+                  <span>Excellent</span>
+                </div>
+              </div>
+
+              {/* Culture Fit Rating */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Culture Fit
+                  <span className="ml-2 text-lg font-bold text-purple-600">{interviewFeedback.cultureFitRating}/5</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={interviewFeedback.cultureFitRating}
+                  onChange={(e) => setInterviewFeedback(prev => ({ ...prev, cultureFitRating: parseInt(e.target.value) }))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>Poor</span>
+                  <span>Fair</span>
+                  <span>Good</span>
+                  <span>Very Good</span>
+                  <span>Excellent</span>
+                </div>
+              </div>
+
+              {/* Overall Average */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="text-sm text-gray-600 mb-1">Overall Average</div>
+                <div className="text-3xl font-bold text-gray-800">
+                  {((interviewFeedback.technicalRating + interviewFeedback.communicationRating + interviewFeedback.cultureFitRating) / 3).toFixed(1)}/5
+                </div>
+              </div>
+
+              {/* Comments */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Interview Comments <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={interviewFeedback.comments}
+                  onChange={(e) => setInterviewFeedback(prev => ({ ...prev, comments: e.target.value }))}
+                  placeholder="Share your observations, strengths, concerns, and any other relevant feedback..."
+                  className="w-full border rounded-lg p-3 h-32 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              {/* Recommendation */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Hiring Recommendation
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    onClick={() => setInterviewFeedback(prev => ({ ...prev, recommendation: 'hire' }))}
+                    className={`py-3 px-4 rounded-lg font-medium transition ${
+                      interviewFeedback.recommendation === 'hire'
+                        ? 'bg-green-600 text-white shadow-lg scale-105'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    ✓ Hire
+                  </button>
+                  <button
+                    onClick={() => setInterviewFeedback(prev => ({ ...prev, recommendation: 'maybe' }))}
+                    className={`py-3 px-4 rounded-lg font-medium transition ${
+                      interviewFeedback.recommendation === 'maybe'
+                        ? 'bg-yellow-500 text-white shadow-lg scale-105'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    ? Maybe
+                  </button>
+                  <button
+                    onClick={() => setInterviewFeedback(prev => ({ ...prev, recommendation: 'no-hire' }))}
+                    className={`py-3 px-4 rounded-lg font-medium transition ${
+                      interviewFeedback.recommendation === 'no-hire'
+                        ? 'bg-red-600 text-white shadow-lg scale-105'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    ✗ No Hire
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-8">
+              <button
+                onClick={handleSubmitInterview}
+                className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold shadow-lg"
+              >
+                Save Feedback
+              </button>
+              <button
+                onClick={() => setShowInterviewModal(null)}
+                className="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 font-semibold"
               >
                 Cancel
               </button>

@@ -981,6 +981,31 @@ function PvaraPhase2() {
     addToast("Note added successfully", { type: "success" });
   }, [addToast, user, audit]);
 
+  // Handle interview feedback
+  const handleInterviewFeedback = useCallback((candidateId, feedback) => {
+    const feedbackWithMeta = {
+      ...feedback,
+      interviewer: user?.name || user?.username || 'Unknown',
+      timestamp: new Date().toISOString(),
+      overallScore: ((feedback.technicalRating + feedback.communicationRating + feedback.cultureFitRating) / 3).toFixed(1)
+    };
+    
+    setState((s) => ({
+      ...s,
+      applications: (s.applications || []).map(app =>
+        app.id === candidateId
+          ? { ...app, interviewFeedback: feedbackWithMeta }
+          : app
+      )
+    }));
+    audit("interview-feedback", { 
+      candidateId, 
+      recommendation: feedback.recommendation,
+      overallScore: feedbackWithMeta.overallScore 
+    });
+    addToast("Interview feedback saved successfully", { type: "success" });
+  }, [addToast, user, audit]);
+
   // Export candidates to CSV
   const handleExport = useCallback((candidatesToExport) => {
     const headers = [
@@ -1984,7 +2009,7 @@ function PvaraPhase2() {
   }
 
   // Two-Panel HR Review with Job Selection
-  function HRReviewPanel({ jobs, applications, onStatusChange, onAIEvaluate, onBulkAction, onAddNote, onExport }) {
+  function HRReviewPanel({ jobs, applications, onStatusChange, onAIEvaluate, onBulkAction, onAddNote, onExport, onInterviewFeedback }) {
     const [selectedJobId, setSelectedJobId] = React.useState(jobs[0]?.id || null);
     
     const selectedJob = jobs.find(j => j.id === selectedJobId);
@@ -2090,6 +2115,7 @@ function PvaraPhase2() {
                   onBulkAction={onBulkAction}
                   onAddNote={onAddNote}
                   onExport={onExport}
+                  onInterviewFeedback={onInterviewFeedback}
                 />
               )}
             </>
@@ -2134,7 +2160,8 @@ function PvaraPhase2() {
               onAIEvaluate={handleAIEvaluation} 
               onBulkAction={handleBulkAction} 
               onAddNote={handleAddNote} 
-              onExport={handleExport} 
+              onExport={handleExport}
+              onInterviewFeedback={handleInterviewFeedback}
             />
           )}
           {view === "ai-screening" && <InterviewRubric rubric={state.rubric} onEvaluate={submitInterviewEvaluation} jobs={state.jobs} applications={state.applications} selectedJobForAI={selectedJobForAI} handleSelectJobForAI={handleSelectJobForAI} />}
