@@ -10,6 +10,8 @@ import CandidateLogin from "./CandidateLogin";
 import AuditLog from "./AuditLog";
 import ApplicationForm from "./ApplicationForm";
 import TestManagement from "./TestManagement";
+import TestingServiceIntegration from "./TestingServiceIntegration";
+import TestingServiceIntegration from "./TestingServiceIntegration";
 import InterviewManagement from "./InterviewManagement";
 import OfferManagement from "./OfferManagement";
 import SettingsPanel from "./SettingsPanel";
@@ -1174,6 +1176,10 @@ function PvaraPhase2() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"/></svg>
               Test Management
             </button>
+            <button onClick={() => { setView("testing-integration"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "testing-integration" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              Testing Services (TestGorilla)
+            </button>
           )}
           {auth.hasRole(['hr','admin','recruiter']) && (
             <button onClick={() => { setView("interview-management"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "interview-management" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
@@ -2155,6 +2161,20 @@ function PvaraPhase2() {
           {view === "interview-management" && (
             <InterviewManagement 
               applications={state.applications}
+          {view === "testing-integration" && (
+            <TestingServiceIntegration
+              applications={state.applications}
+              jobs={state.jobs}
+              onUpdateApplication={(appId, updates) => {
+                setState(prev => ({
+                  ...prev,
+                  applications: prev.applications.map(app =>
+                    app.id === appId ? { ...app, ...updates } : app
+                  )
+                }));
+              }}
+            />
+          )}
               jobs={state.jobs}
               onInterviewFeedback={(candidateId, feedback) => {
                 const overallScore = ((feedback.technicalRating + feedback.communicationRating + feedback.cultureFitRating + feedback.problemSolvingRating) / 4).toFixed(1);
