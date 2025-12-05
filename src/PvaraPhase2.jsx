@@ -5,12 +5,15 @@ import { ToastProvider, useToast } from "./ToastContext";
 import { AuthProvider, useAuth } from "./AuthContext";
 import JobList from "./JobList";
 import CandidateList from "./CandidateList";
+import MyCandidateApplications from "./MyCandidateApplications";
+import CandidateLogin from "./CandidateLogin";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
 import InterviewRubric from "./InterviewRubric";
 import AuditLog from "./AuditLog";
 import ApplicationForm from "./ApplicationForm";
 import ShortlistPanel from "./ShortlistPanel";
 import Toasts from "./Toasts";
+import { batchEvaluateApplications } from "./aiScreening";
 
 // ---------- Storage utilities ----------
 const STORAGE_KEY = "pvara_v3";
@@ -71,191 +74,425 @@ function LoginInline({ onLogin }) {
   );
 }
 
+// ---------- Test Data Generator ----------
+function generateTestApplications(jobs) {
+  const firstNames = ["Ahmed", "Fatima", "Ali", "Ayesha", "Hassan", "Zainab", "Usman", "Mariam", "Bilal", "Sana", "Imran", "Nida", "Faisal", "Hira", "Kamran"];
+  const lastNames = ["Khan", "Ahmed", "Ali", "Hassan", "Hussain", "Shah", "Malik", "Rehman", "Iqbal", "Butt", "Siddiqui", "Rizvi", "Farooq", "Aziz", "Raza"];
+  const degrees = ["Bachelor in Computer Science", "Master in Finance", "Bachelor in Business Administration", "Master in Economics", "Bachelor in Engineering", "Master in Law", "Bachelor in Statistics", "PhD in Mathematics"];
+  const cities = ["Islamabad", "Karachi", "Lahore", "Rawalpindi", "Faisalabad"];
+  
+  const applications = [];
+  const statuses = ["submitted", "screening", "phone-interview", "interview", "offer", "rejected"];
+  
+  // Create 3-5 applications per job
+  jobs.slice(0, 8).forEach((job, jobIdx) => {
+    const numApps = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < numApps; i++) {
+      const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+      const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+      const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${Math.floor(Math.random() * 100)}@email.com`;
+      
+      applications.push({
+        id: `app-${Date.now()}-${jobIdx}-${i}`,
+        jobId: job.id,
+        applicant: {
+          name: `${firstName} ${lastName}`,
+          email: email,
+          cnic: `${35000 + Math.floor(Math.random() * 9999)}-${1000000 + Math.floor(Math.random() * 9999999)}-${Math.floor(Math.random() * 10)}`,
+          phone: `+92-300-${Math.floor(Math.random() * 9000000) + 1000000}`,
+          degree: degrees[Math.floor(Math.random() * degrees.length)],
+          experienceYears: Math.floor(Math.random() * 15) + 3,
+          address: `${Math.floor(Math.random() * 200) + 1} Street ${Math.floor(Math.random() * 50)}, ${cities[Math.floor(Math.random() * cities.length)]}`,
+          linkedin: Math.random() > 0.3 ? `linkedin.com/in/${firstName.toLowerCase()}-${lastName.toLowerCase()}` : "",
+        },
+        resumeUrl: `resume_${firstName}_${lastName}.pdf`,
+        coverLetterUrl: Math.random() > 0.4 ? `cover_${firstName}_${lastName}.pdf` : undefined,
+        status: statuses[Math.min(Math.floor(Math.random() * statuses.length), 5)],
+        aiScore: Math.floor(Math.random() * 40) + 60,
+        createdAt: new Date(Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+  });
+  
+  return applications;
+}
+
 // ---------- Default state ----------
 function defaultState() {
   const jobs = [
     {
-      id: "job-1733420800001",
-      title: "Senior Software Engineer",
-      department: "Engineering",
-      grade: "Scale-9",
-      createdAt: "2025-12-05T10:00:00.000Z",
+      id: "job-1733450000001",
+      title: "Director General - Virtual Assets Oversight",
+      department: "Executive Leadership",
+      grade: "DG",
+      createdAt: "2025-12-05T09:00:00.000Z",
       fields: {
-        degreeRequired: { value: "Bachelor", mandatory: true },
-        minExperience: { value: 3, mandatory: true },
-        uploads: { value: { cv: true, coverLetter: false }, mandatory: true },
+        degreeRequired: { value: "Master", mandatory: true },
+        minExperience: { value: 15, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
       },
-      description: "We are looking for a skilled Senior Software Engineer to design, develop, and maintain scalable web applications. You'll work with modern technologies including React, Node.js, and cloud platforms to build innovative solutions.",
+      description: "Lead the national Virtual Assets Regulatory Authority (PVARA), setting strategy for licensing, supervision, and enforcement across VASPs, exchanges, and custodians.",
+      locations: ["Islamabad"],
+      openings: 1,
+      employmentType: "Full-time",
+      salary: { min: 900000, max: 1200000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000002",
+      title: "Director - Licensing & Authorizations",
+      department: "Licensing",
+      grade: "Director",
+      createdAt: "2025-12-04T15:30:00.000Z",
+      fields: {
+        degreeRequired: { value: "Master", mandatory: true },
+        minExperience: { value: 12, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Own end-to-end authorization of virtual asset service providers (VASPs), including fit-and-proper assessments, capital adequacy, and travel-rule readiness.",
+      locations: ["Islamabad"],
+      openings: 1,
+      employmentType: "Full-time",
+      salary: { min: 650000, max: 850000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000003",
+      title: "Director - Supervision & Compliance",
+      department: "Supervision",
+      grade: "Director",
+      createdAt: "2025-12-04T12:10:00.000Z",
+      fields: {
+        degreeRequired: { value: "Master", mandatory: true },
+        minExperience: { value: 12, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Lead ongoing supervision of VASPs, exchanges, custodians, and wallet providers with on-site/remote inspections and risk-based monitoring.",
+      locations: ["Islamabad", "Karachi"],
+      openings: 1,
+      employmentType: "Full-time",
+      salary: { min: 620000, max: 820000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000004",
+      title: "Director - Enforcement & Investigations",
+      department: "Enforcement",
+      grade: "Director",
+      createdAt: "2025-12-03T18:40:00.000Z",
+      fields: {
+        degreeRequired: { value: "Master", mandatory: true },
+        minExperience: { value: 12, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Oversee complex investigations, sanctions, and remediation for AML/CFT breaches, market abuse, and consumer protection violations in virtual assets.",
+      locations: ["Islamabad"],
+      openings: 1,
+      employmentType: "Full-time",
+      salary: { min: 650000, max: 850000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000005",
+      title: "Director - Policy & Standards (Virtual Assets)",
+      department: "Policy",
+      grade: "Director",
+      createdAt: "2025-12-03T10:15:00.000Z",
+      fields: {
+        degreeRequired: { value: "Master", mandatory: true },
+        minExperience: { value: 10, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Shape national policy for virtual assets, align with FATF travel rule, IOSCO recommendations, and develop prudential/market conduct standards.",
+      locations: ["Islamabad"],
+      openings: 1,
+      employmentType: "Full-time",
+      salary: { min: 580000, max: 780000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000006",
+      title: "Director - Technology & Cybersecurity",
+      department: "Technology",
+      grade: "Director",
+      createdAt: "2025-12-02T14:00:00.000Z",
+      fields: {
+        degreeRequired: { value: "Master", mandatory: true },
+        minExperience: { value: 10, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Set cybersecurity baseline for VASPs, penetration testing standards, key management, cold/warm wallet controls, and incident reporting protocols.",
+      locations: ["Karachi", "Islamabad"],
+      openings: 1,
+      employmentType: "Full-time",
+      salary: { min: 600000, max: 800000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000007",
+      title: "Deputy Director - Licensing (Exchanges & Custodians)",
+      department: "Licensing",
+      grade: "Deputy Director",
+      createdAt: "2025-12-02T09:20:00.000Z",
+      fields: {
+        degreeRequired: { value: "Master", mandatory: true },
+        minExperience: { value: 8, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Lead evaluations of exchange and custodian license applications, focusing on custody controls, segregation of client assets, and solvency.",
+      locations: ["Islamabad"],
+      openings: 2,
+      employmentType: "Full-time",
+      salary: { min: 380000, max: 520000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000008",
+      title: "Deputy Director - Supervision (VASP Monitoring)",
+      department: "Supervision",
+      grade: "Deputy Director",
+      createdAt: "2025-12-01T17:10:00.000Z",
+      fields: {
+        degreeRequired: { value: "Master", mandatory: true },
+        minExperience: { value: 8, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Perform risk-based supervision, thematic reviews, and remediation tracking for licensed VASPs across Pakistan.",
       locations: ["Karachi", "Lahore"],
       openings: 2,
       employmentType: "Full-time",
-      salary: { min: 150000, max: 250000 },
+      salary: { min: 360000, max: 500000 },
       status: "open",
     },
     {
-      id: "job-1733420800002",
-      title: "Product Manager - Digital Products",
-      department: "Product",
-      grade: "Scale-8",
-      createdAt: "2025-12-04T14:30:00.000Z",
+      id: "job-1733450000009",
+      title: "Deputy Director - Enforcement (Digital Forensics)",
+      department: "Enforcement",
+      grade: "Deputy Director",
+      createdAt: "2025-12-01T11:00:00.000Z",
+      fields: {
+        degreeRequired: { value: "Master", mandatory: true },
+        minExperience: { value: 8, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Lead blockchain forensic investigations, seizure protocols, evidence preservation, and coordination with FIUs and law enforcement.",
+      locations: ["Islamabad", "Karachi"],
+      openings: 2,
+      employmentType: "Full-time",
+      salary: { min: 380000, max: 520000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000010",
+      title: "Deputy Director - Policy (Travel Rule & FATF Alignment)",
+      department: "Policy",
+      grade: "Deputy Director",
+      createdAt: "2025-11-30T16:40:00.000Z",
+      fields: {
+        degreeRequired: { value: "Master", mandatory: true },
+        minExperience: { value: 7, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Draft and socialize travel rule guidance, sanction-screening requirements, and cross-border information sharing standards.",
+      locations: ["Islamabad"],
+      openings: 1,
+      employmentType: "Full-time",
+      salary: { min: 340000, max: 480000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000011",
+      title: "Assistant Director - Licensing (Retail VASP)",
+      department: "Licensing",
+      grade: "Assistant Director",
+      createdAt: "2025-11-30T10:25:00.000Z",
       fields: {
         degreeRequired: { value: "Bachelor", mandatory: true },
         minExperience: { value: 5, mandatory: true },
         uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
       },
-      description: "Lead product strategy and execution for our digital financial services. Partner with engineering, design, and business teams to deliver world-class customer experiences. Strong background in fintech or digital payments required.",
-      locations: ["Islamabad"],
-      openings: 1,
-      employmentType: "Full-time",
-      salary: { min: 200000, max: 350000 },
-      status: "open",
-    },
-    {
-      id: "job-1733420800003",
-      title: "UI/UX Designer",
-      department: "Design",
-      grade: "Scale-7",
-      createdAt: "2025-12-03T09:15:00.000Z",
-      fields: {
-        degreeRequired: { value: "Bachelor", mandatory: false },
-        minExperience: { value: 2, mandatory: true },
-        uploads: { value: { cv: true, coverLetter: false }, mandatory: true },
-      },
-      description: "Create beautiful, intuitive user interfaces and exceptional user experiences. Work closely with product and engineering teams to bring designs to life. Portfolio showcasing mobile and web design required.",
-      locations: ["Karachi", "Remote"],
+      description: "Review retail VASP applications, client asset safeguarding plans, outsourcing arrangements, and operational resilience.",
+      locations: ["Islamabad", "Karachi"],
       openings: 3,
       employmentType: "Full-time",
-      salary: { min: 80000, max: 150000 },
+      salary: { min: 240000, max: 360000 },
       status: "open",
     },
     {
-      id: "job-1733420800004",
-      title: "Data Scientist",
-      department: "Analytics",
-      grade: "Scale-8",
-      createdAt: "2025-12-02T11:45:00.000Z",
+      id: "job-1733450000012",
+      title: "Assistant Director - Supervision (Exchange Operations)",
+      department: "Supervision",
+      grade: "Assistant Director",
+      createdAt: "2025-11-29T14:00:00.000Z",
       fields: {
-        degreeRequired: { value: "Master", mandatory: true },
-        minExperience: { value: 3, mandatory: true },
+        degreeRequired: { value: "Bachelor", mandatory: true },
+        minExperience: { value: 5, mandatory: true },
         uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
       },
-      description: "Apply machine learning and statistical analysis to solve complex business problems. Build predictive models, conduct A/B testing, and drive data-informed decision making. Experience with Python, SQL, and ML frameworks essential.",
-      locations: ["Lahore"],
-      openings: 1,
+      description: "Monitor exchange uptime, liquidity, market integrity controls, proof-of-reserves attestations, and incident reporting.",
+      locations: ["Karachi", "Lahore"],
+      openings: 3,
       employmentType: "Full-time",
-      salary: { min: 180000, max: 280000 },
+      salary: { min: 230000, max: 340000 },
       status: "open",
     },
     {
-      id: "job-1733420800005",
-      title: "DevOps Engineer",
-      department: "Engineering",
+      id: "job-1733450000013",
+      title: "Assistant Director - Enforcement (Blockchain Forensics)",
+      department: "Enforcement",
+      grade: "Assistant Director",
+      createdAt: "2025-11-28T19:00:00.000Z",
+      fields: {
+        degreeRequired: { value: "Bachelor", mandatory: true },
+        minExperience: { value: 4, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Conduct tracing of illicit flows, wallet clustering, and chain analytics to support enforcement actions and SAR escalation.",
+      locations: ["Islamabad", "Karachi"],
+      openings: 3,
+      employmentType: "Full-time",
+      salary: { min: 220000, max: 320000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000014",
+      title: "Assistant Director - Policy (Stablecoins & Tokenization)",
+      department: "Policy",
+      grade: "Assistant Director",
+      createdAt: "2025-11-28T09:30:00.000Z",
+      fields: {
+        degreeRequired: { value: "Bachelor", mandatory: true },
+        minExperience: { value: 4, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Develop guardrails for stablecoins, tokenized assets, disclosure standards, and consumer protection around virtual asset offerings.",
+      locations: ["Islamabad"],
+      openings: 2,
+      employmentType: "Full-time",
+      salary: { min: 210000, max: 320000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000015",
+      title: "Senior Analyst - Blockchain Forensics",
+      department: "Enforcement",
       grade: "Scale-8",
-      createdAt: "2025-12-01T16:20:00.000Z",
+      createdAt: "2025-11-27T15:00:00.000Z",
       fields: {
         degreeRequired: { value: "Bachelor", mandatory: true },
         minExperience: { value: 4, mandatory: true },
         uploads: { value: { cv: true, coverLetter: false }, mandatory: true },
       },
-      description: "Build and maintain CI/CD pipelines, manage cloud infrastructure, and ensure system reliability. Expertise in AWS/Azure, Docker, Kubernetes, and infrastructure as code required. On-call rotation expected.",
+      description: "Execute investigations using chain analytics tools (Chainalysis/ELLIPTIC), trace ransomware flows, and support cross-border cooperation.",
+      locations: ["Karachi", "Islamabad"],
+      openings: 3,
+      employmentType: "Full-time",
+      salary: { min: 180000, max: 260000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000016",
+      title: "Senior Analyst - Market Surveillance (Crypto)",
+      department: "Supervision",
+      grade: "Scale-8",
+      createdAt: "2025-11-27T09:30:00.000Z",
+      fields: {
+        degreeRequired: { value: "Bachelor", mandatory: true },
+        minExperience: { value: 4, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: false }, mandatory: true },
+      },
+      description: "Monitor trade surveillance alerts, wash trading patterns, spoofing/layering, and suspicious volume movements across exchanges.",
+      locations: ["Karachi"],
+      openings: 2,
+      employmentType: "Full-time",
+      salary: { min: 170000, max: 250000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000017",
+      title: "Senior Legal Counsel - Virtual Assets",
+      department: "Legal",
+      grade: "Scale-9",
+      createdAt: "2025-11-26T16:15:00.000Z",
+      fields: {
+        degreeRequired: { value: "Bachelor", mandatory: true },
+        minExperience: { value: 8, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Draft regulatory instruments, enforcement orders, and licensing conditions; advise on cross-border cooperation and data sharing agreements.",
+      locations: ["Islamabad"],
+      openings: 2,
+      employmentType: "Full-time",
+      salary: { min: 320000, max: 460000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000018",
+      title: "Senior Risk Officer - VASP Oversight",
+      department: "Risk",
+      grade: "Scale-8",
+      createdAt: "2025-11-26T10:00:00.000Z",
+      fields: {
+        degreeRequired: { value: "Bachelor", mandatory: true },
+        minExperience: { value: 6, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: false }, mandatory: true },
+      },
+      description: "Perform ICAAP reviews for VASPs, stress testing of liquidity/market risk, and validate risk-control self assessments.",
+      locations: ["Islamabad", "Lahore"],
+      openings: 2,
+      employmentType: "Full-time",
+      salary: { min: 190000, max: 280000 },
+      status: "open",
+    },
+    {
+      id: "job-1733450000019",
+      title: "Lead Cloud Security Architect (RegTech)",
+      department: "Technology",
+      grade: "Scale-9",
+      createdAt: "2025-11-25T17:45:00.000Z",
+      fields: {
+        degreeRequired: { value: "Bachelor", mandatory: true },
+        minExperience: { value: 8, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+      },
+      description: "Design secure cloud reference architectures for supervisory tech, SIEM/SOAR pipelines, and zero-trust access for regulator tooling.",
       locations: ["Karachi", "Islamabad"],
       openings: 2,
       employmentType: "Full-time",
-      salary: { min: 160000, max: 240000 },
+      salary: { min: 300000, max: 430000 },
       status: "open",
     },
     {
-      id: "job-1733420800006",
-      title: "Business Development Manager",
-      department: "Sales",
-      grade: "Scale-7",
-      createdAt: "2025-11-30T13:00:00.000Z",
+      id: "job-legacy-sse",
+      title: "Senior Software Engineer",
+      department: "Engineering",
+      grade: "SSE",
+      createdAt: "2024-01-01T00:00:00.000Z",
       fields: {
         degreeRequired: { value: "Bachelor", mandatory: true },
         minExperience: { value: 5, mandatory: true },
-        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
+        uploads: { value: { cv: true, coverLetter: false }, mandatory: true },
       },
-      description: "Drive strategic partnerships and revenue growth. Identify new business opportunities, negotiate contracts, and build long-term relationships with key clients. Experience in B2B sales and fintech preferred.",
-      locations: ["Lahore", "Karachi"],
+      description: "Build and maintain core platform services for the recruitment portal, ensuring reliability and performance.",
+      locations: ["Islamabad", "Remote"],
       openings: 2,
       employmentType: "Full-time",
-      salary: { min: 120000, max: 200000 },
-      status: "open",
-    },
-    {
-      id: "job-1733420800007",
-      title: "Quality Assurance Engineer",
-      department: "Engineering",
-      grade: "Scale-6",
-      createdAt: "2025-11-29T10:30:00.000Z",
-      fields: {
-        degreeRequired: { value: "Bachelor", mandatory: true },
-        minExperience: { value: 2, mandatory: true },
-        uploads: { value: { cv: true, coverLetter: false }, mandatory: true },
-      },
-      description: "Ensure software quality through comprehensive testing strategies. Create automated test suites, perform manual testing, and work with developers to resolve issues. Experience with Selenium, Playwright, or Cypress preferred.",
-      locations: ["Remote"],
-      openings: 4,
-      employmentType: "Full-time",
-      salary: { min: 70000, max: 120000 },
-      status: "open",
-    },
-    {
-      id: "job-1733420800008",
-      title: "Marketing Manager",
-      department: "Marketing",
-      grade: "Scale-7",
-      createdAt: "2025-11-28T15:45:00.000Z",
-      fields: {
-        degreeRequired: { value: "Bachelor", mandatory: true },
-        minExperience: { value: 4, mandatory: true },
-        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
-      },
-      description: "Lead integrated marketing campaigns across digital and traditional channels. Develop brand strategy, manage marketing budget, and drive customer acquisition. Experience in growth marketing and analytics essential.",
-      locations: ["Islamabad"],
-      openings: 1,
-      employmentType: "Full-time",
-      salary: { min: 140000, max: 220000 },
-      status: "open",
-    },
-    {
-      id: "job-1733420800009",
-      title: "Customer Success Specialist",
-      department: "Customer Success",
-      grade: "Scale-5",
-      createdAt: "2025-11-27T12:00:00.000Z",
-      fields: {
-        degreeRequired: { value: "Bachelor", mandatory: false },
-        minExperience: { value: 1, mandatory: true },
-        uploads: { value: { cv: true, coverLetter: false }, mandatory: true },
-      },
-      description: "Be the voice of our customers. Handle inquiries, resolve issues, and ensure customer satisfaction. Build strong relationships and identify opportunities for upselling. Excellent communication skills required.",
-      locations: ["Karachi", "Lahore", "Islamabad"],
-      openings: 5,
-      employmentType: "Full-time",
-      salary: { min: 50000, max: 80000 },
-      status: "open",
-    },
-    {
-      id: "job-1733420800010",
-      title: "HR Business Partner",
-      department: "Human Resources",
-      grade: "Scale-7",
-      createdAt: "2025-11-26T09:30:00.000Z",
-      fields: {
-        degreeRequired: { value: "Bachelor", mandatory: true },
-        minExperience: { value: 5, mandatory: true },
-        uploads: { value: { cv: true, coverLetter: true }, mandatory: true },
-      },
-      description: "Partner with business leaders on talent strategy, organizational development, and culture initiatives. Drive recruitment, performance management, and employee engagement programs. SHRM certification preferred.",
-      locations: ["Islamabad"],
-      openings: 1,
-      employmentType: "Full-time",
-      salary: { min: 130000, max: 200000 },
+      salary: { min: 220000, max: 380000 },
       status: "open",
     },
   ];
-  return { jobs, applications: [], shortlists: [], audit: [], settings: { scoring: { education: 40, experience: 40, interview: 20 } } };
+  
+  // Generate test applications for demo
+  const testApplications = generateTestApplications(jobs);
+  
+  return { 
+    jobs, 
+    applications: testApplications,
+    candidates: [], // Array of candidate profiles keyed by CNIC
+    shortlists: [], 
+    audit: [], 
+    settings: { scoring: { education: 40, experience: 40, interview: 20 } } 
+  };
 }
 
 // ---------- App ----------
@@ -278,6 +515,87 @@ function PvaraPhase2() {
   const auth = useAuth();
   const user = auth?.user ?? null;
   const { addToast } = useToast();
+  
+  // Candidate session (CNIC-based login)
+  const [candidateSession, setCandidateSession] = useState(null);
+
+  // Reset to default state (for debugging)
+  const handleResetState = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setState(defaultState());
+    addToast("State reset to defaults with 20 jobs", "success");
+  }, [addToast]);
+  
+  // Handle candidate login (CNIC + phone/email verification)
+  const handleCandidateLogin = useCallback((credentials) => {
+    const { cnic, phone, email } = credentials;
+    
+    // Find candidate profile by CNIC
+    const candidate = (state.candidates || []).find(c => c.cnic === cnic);
+    
+    if (!candidate) {
+      addToast("No applications found with this CNIC. Please apply first.", { type: "error" });
+      return;
+    }
+    
+    // Verify phone or email
+    const verificationValue = phone || email;
+    const verificationField = phone ? 'phone' : 'email';
+    
+    if (verificationField === 'phone' && candidate.phone !== verificationValue) {
+      addToast("Phone number does not match our records.", { type: "error" });
+      return;
+    }
+    
+    if (verificationField === 'email' && !candidate.emails.includes(verificationValue)) {
+      addToast("Email does not match our records.", { type: "error" });
+      return;
+    }
+    
+    // Login successful
+    setCandidateSession(candidate);
+    setView("my-apps");
+    addToast(`Welcome back, ${candidate.name}!`, { type: "success" });
+  }, [state.candidates, addToast]);
+
+  // Generate test applications
+  const handleGenerateTestData = useCallback(() => {
+    const testApps = generateTestApplications(state.jobs);
+    setState(prev => ({
+      ...prev,
+      applications: [...prev.applications, ...testApps]
+    }));
+    addToast(`Generated ${testApps.length} test applications`, "success");
+  }, [state.jobs, addToast]);
+
+  // AI Batch Evaluation
+  const handleAIEvaluation = useCallback(() => {
+    const unevaluatedCount = state.applications.filter(
+      app => app.status === 'submitted' || !app.aiScore
+    ).length;
+    
+    if (unevaluatedCount === 0) {
+      addToast("All applications already evaluated", "info");
+      return;
+    }
+
+    const evaluatedApps = batchEvaluateApplications(state.applications, state.jobs);
+    setState(prev => ({
+      ...prev,
+      applications: evaluatedApps,
+      audit: [
+        ...prev.audit,
+        {
+          id: `audit-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          user: user?.username || 'system',
+          action: 'AI_BATCH_EVALUATION',
+          details: `Evaluated ${unevaluatedCount} applications using AI`,
+        }
+      ]
+    }));
+    addToast(`AI evaluated ${unevaluatedCount} applications`, "success");
+  }, [state.applications, state.jobs, user, addToast]);
 
   const [view, setView] = useState("jobs");
   const [selectedJobId, setSelectedJobId] = useState(null);
@@ -298,11 +616,13 @@ function PvaraPhase2() {
   const [confirm, setConfirm] = useState({ open: false, title: "", message: "", onConfirm: null });
   const [drawer, setDrawer] = useState({ open: false, app: null });
   const [hrSearch, setHrSearch] = useState("");
+  const [jobSearch, setJobSearch] = useState("");
   const [selectedApps, setSelectedApps] = useState([]);
   const [selectedJobForAI, setSelectedJobForAI] = useState(null);
   const handleSelectJobForAI = useCallback((value) => setSelectedJobForAI(value), []);
 
   // Memoized handlers to prevent input focus loss
+  // eslint-disable-next-line no-unused-vars
   const handleAppFormChange = useCallback((field, value) => {
     setAppForm((prev) => ({ ...prev, [field]: value }));
   }, []);
@@ -396,7 +716,33 @@ function PvaraPhase2() {
       formData = null; // Use appForm state instead
     }
     
-    const applicantData = formData || appForm;
+    let applicantData = formData || appForm;
+    
+    // Transform ApplicationForm data structure if needed
+    if (applicantData.firstName || applicantData.education) {
+      const primaryEducation = applicantData.education?.[0] || {};
+      const primaryEmployment = applicantData.employment?.[0] || {};
+      
+      applicantData = {
+        jobId: applicantData.jobId,
+        name: `${applicantData.firstName || ''} ${applicantData.lastName || ''}`.trim() || applicantData.name,
+        email: applicantData.email,
+        cnic: applicantData.cnic || 'N/A',
+        phone: applicantData.phone,
+        degree: primaryEducation.degree || applicantData.degree || 'Not specified',
+        experienceYears: applicantData.experienceYears || 
+                        (primaryEmployment.startYear ? new Date().getFullYear() - parseInt(primaryEmployment.startYear) : 0),
+        address: applicantData.streetAddress1 || applicantData.address || `${applicantData.city}, ${applicantData.state}`.trim(),
+        linkedin: applicantData.portfolioLink || applicantData.linkedin || '',
+        // Keep additional data
+        education: applicantData.education,
+        employment: applicantData.employment,
+        skills: applicantData.skills,
+        languages: applicantData.languages,
+        coverLetter: applicantData.coverLetter,
+      };
+    }
+    
     const job = (state.jobs || []).find((j) => j.id === applicantData.jobId);
     if (!job) {
       addToast("Select job", { type: "error" });
@@ -429,6 +775,22 @@ function PvaraPhase2() {
   function finalizeApplication(job, files, manual, applicantData) {
     const data = applicantData || appForm;
     const filesNames = (files || []).map((f) => f.name);
+    
+    // Check if candidate profile exists by CNIC
+    const cnic = data.cnic || 'N/A';
+    let candidate = (state.candidates || []).find(c => c.cnic === cnic);
+    
+    // Check for duplicate application to same job
+    if (candidate) {
+      const existingApp = (state.applications || []).find(
+        app => app.applicant.cnic === cnic && app.jobId === job.id
+      );
+      if (existingApp) {
+        addToast(`You have already applied to ${job.title}`, { type: "warning" });
+        return;
+      }
+    }
+    
     const app = {
       id: `app-${Date.now()}`,
       jobId: job.id,
@@ -438,11 +800,52 @@ function PvaraPhase2() {
       createdAt: new Date().toISOString(),
       screeningErrors: manual ? ["failed mandatory checks"] : [],
     };
+    
+    // Create or update candidate profile
+    if (!candidate) {
+      candidate = {
+        cnic: cnic,
+        name: data.name,
+        phone: data.phone,
+        primaryEmail: data.email,
+        emails: [data.email],
+        applications: [app.id],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setState((s) => ({ ...s, candidates: [...(s.candidates || []), candidate] }));
+    } else {
+      // Update existing candidate profile
+      setState((s) => ({
+        ...s,
+        candidates: (s.candidates || []).map(c => {
+          if (c.cnic === cnic) {
+            return {
+              ...c,
+              // Update name and phone if changed
+              name: data.name,
+              phone: data.phone,
+              // Add new email if different
+              emails: c.emails.includes(data.email) ? c.emails : [...c.emails, data.email],
+              // Link application
+              applications: [...c.applications, app.id],
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return c;
+        })
+      }));
+    }
     setState((s) => ({ ...s, applications: [app, ...(s.applications || [])] }));
     audit("submit-app", { appId: app.id, jobId: job.id, status: app.status });
     setAppForm({ jobId: state.jobs[0]?.id || "", name: "", email: "", cnic: "", phone: "", degree: "", experienceYears: "", address: "", linkedin: "" });
     if (fileRef.current) fileRef.current.value = null;
-    addToast("Application submitted: " + app.status, { type: "success" });
+    addToast(`Application submitted successfully for ${job.title}!`, { type: "success" });
+    
+    // Redirect to My Applications page after 1 second
+    setTimeout(() => {
+      setView("my-apps");
+    }, 1500);
     
     // Send confirmation email
     const emailData = {
@@ -534,6 +937,78 @@ function PvaraPhase2() {
     }
   }
 
+  // Bulk action handler
+  const handleBulkAction = useCallback((selectedIds, action) => {
+    setState((s) => ({
+      ...s,
+      applications: (s.applications || []).map(app =>
+        selectedIds.includes(app.id) ? { ...app, status: action } : app
+      )
+    }));
+    audit("bulk-action", { selectedIds, action, count: selectedIds.length });
+    addToast(`${selectedIds.length} candidate(s) moved to ${action}`, { type: "success" });
+  }, [addToast, state]);
+
+  // Add note to application
+  const handleAddNote = useCallback((candidateId, noteText) => {
+    const note = {
+      id: `note-${Date.now()}`,
+      text: noteText,
+      author: user?.name || user?.username || 'Unknown',
+      timestamp: new Date().toISOString()
+    };
+    
+    setState((s) => ({
+      ...s,
+      applications: (s.applications || []).map(app =>
+        app.id === candidateId
+          ? { ...app, notes: [...(app.notes || []), note] }
+          : app
+      )
+    }));
+    audit("add-note", { candidateId, noteText: noteText.substring(0, 50) });
+    addToast("Note added successfully", { type: "success" });
+  }, [addToast, user, state]);
+
+  // Export candidates to CSV
+  const handleExport = useCallback((candidatesToExport) => {
+    const headers = [
+      'Name', 'Email', 'CNIC', 'Phone', 'Degree', 'Experience (Years)',
+      'Status', 'AI Score', 'AI Recommendation', 'Applied Date', 'Notes Count'
+    ];
+    
+    const rows = candidatesToExport.map(c => [
+      c.applicant?.name || c.name || '',
+      c.applicant?.email || c.email || '',
+      c.applicant?.cnic || '',
+      c.applicant?.phone || '',
+      c.applicant?.degree || c.degree || '',
+      c.applicant?.experienceYears || c.experienceYears || '',
+      c.status || 'submitted',
+      c.aiScore || '',
+      c.aiRecommendation || '',
+      c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '',
+      c.notes?.length || 0
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `candidates-export-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    addToast(`Exported ${candidatesToExport.length} candidate(s)`, { type: "success" });
+  }, [addToast]);
+
   // openDrawer accepts either an application object or an id and always resolves latest state
   function openDrawer(appOrId) {
     const app = typeof appOrId === 'string' ? (state.applications || []).find((x) => x.id === appOrId) : appOrId;
@@ -591,6 +1066,7 @@ function PvaraPhase2() {
     audit("create-shortlist", { shortlistId: sl.id, count: sl.items.length });
   }
 
+  // eslint-disable-next-line no-unused-vars
   function exportShortlistCSV(slId) {
     const sl = state.shortlists.find((s) => s.id === slId);
     if (!sl) return addToast("Shortlist not found", { type: "error" });
@@ -648,22 +1124,33 @@ function PvaraPhase2() {
         </div>
 
         <nav className="flex-1 space-y-1">
+          {/* Public Candidate Portal - Always Visible */}
+          <div className="text-xs uppercase font-semibold text-gray-500 px-3 py-2 mb-1">For Candidates</div>
           <button onClick={() => { setView("jobs"); setMobileMenuOpen(false); setSelectedJobId(null); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "jobs" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             Browse Jobs
           </button>
-          <button onClick={() => { setView("dashboard"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "dashboard" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-            Dashboard
-          </button>
           <button onClick={() => { setView("apply"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "apply" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-            Apply
+            Apply Now
           </button>
-          <button onClick={() => { setView("my-apps"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "my-apps" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
+          <button onClick={() => { setView("candidate-login"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "candidate-login" || view === "my-apps" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
-            My Applications
+            Track My Applications
           </button>
+          
+          {/* Staff Portal - Only for logged-in HR/Admin */}
+          {user && (
+            <>
+              <div className="border-t border-gray-300/50 mt-4 pt-4 mb-2">
+                <div className="text-xs uppercase font-semibold text-gray-500 px-3 py-1">Staff Portal</div>
+              </div>
+              <button onClick={() => { setView("dashboard"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "dashboard" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+                Dashboard
+              </button>
+            </>
+          )}
           {auth.hasRole('admin') && (
             <button onClick={() => { setView("admin"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "admin" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -688,15 +1175,22 @@ function PvaraPhase2() {
               Analytics
             </button>
           )}
-          <button onClick={() => { setView("shortlists"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-all ${view === "shortlists" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-            ⭐ Shortlists
-          </button>
-          <button onClick={() => { setView("audit"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-all ${view === "audit" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-            📋 Audit Log
-          </button>
+          {auth.hasRole(['hr','admin','recruiter']) && (
+            <button onClick={() => { setView("shortlists"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "shortlists" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9 12 2" /></svg>
+              Shortlists
+            </button>
+          )}
+          {auth.hasRole(['hr','admin']) && (
+            <button onClick={() => { setView("audit"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "audit" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/></svg>
+              Audit Log
+            </button>
+          )}
           {/* Advanced Features Section */}
-          <div className="border-t border-gray-300/50 mt-3 pt-3">
-            <div className="text-xs uppercase font-semibold text-gray-600 px-3 py-1">Advanced</div>
+          {auth.hasRole(['hr','admin','recruiter']) && (
+            <div className="border-t border-gray-300/50 mt-3 pt-3">
+              <div className="text-xs uppercase font-semibold text-gray-600 px-3 py-1">Advanced</div>
             {auth.hasRole(['hr','admin','recruiter']) && (
               <>
                 <button onClick={() => { setView("emails"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "emails" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
@@ -719,15 +1213,14 @@ function PvaraPhase2() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>
                   Reports
                 </button>
+                <button onClick={() => { setView("settings"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "settings" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                  Settings
+                </button>
               </>
             )}
-            {auth.hasRole('admin') && (
-              <button onClick={() => { setView("settings"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "settings" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-                Settings
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </nav>
 
         <div className="mt-4 text-xs text-gray-700">
@@ -774,7 +1267,7 @@ function PvaraPhase2() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h2 className="text-xl md:text-2xl font-semibold text-green-800">{title}</h2>
-            <div className="text-sm text-gray-500">Enterprise Recruitment • PVARA</div>
+            <div className="text-sm text-gray-500">Enterprise Recruitment Portal</div>
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <input placeholder="Search applications..." value={hrSearch} onChange={(e) => handleHrSearchChange(e.target.value)} className="border p-2 rounded w-full sm:w-64" />
@@ -962,6 +1455,7 @@ function PvaraPhase2() {
   });
   ApplicationFormComponent.displayName = 'ApplicationFormComponent';
 
+  // eslint-disable-next-line no-unused-vars
   function CandidateView() {
     // In a demo without real user accounts, show all applications
     // In production, filter by user.email or user.id
@@ -1049,6 +1543,7 @@ function PvaraPhase2() {
     );
   }
 
+  // eslint-disable-next-line no-unused-vars
   function AdminView() {
     if (!user || user.role !== "admin") return <div>Access denied</div>;
     return (
@@ -1107,6 +1602,7 @@ function PvaraPhase2() {
     );
   }
 
+  // eslint-disable-next-line no-unused-vars
   function HRView() {
     if (!user || (user.role !== "hr" && user.role !== "admin" && user.role !== "recruiter")) return <div>Access denied</div>;
     const apps = (state.applications || []).filter((a) => 
@@ -1199,24 +1695,57 @@ function PvaraPhase2() {
 
   // Public Job Board View
   function JobBoardView() {
-    const openJobs = (state.jobs || []).filter(j => j.status === 'open');
+    const [currentPage, setCurrentPage] = React.useState(1);
+    const jobsPerPage = 6;
     
+    const openJobs = (state.jobs || []).filter((j) => j.status === "open");
+    const normalizedSearch = jobSearch.trim().toLowerCase();
+
+    const visibleJobs = React.useMemo(() => {
+      if (!normalizedSearch) return openJobs;
+      return openJobs.filter((j) => {
+        const haystack = [
+          j.title,
+          j.department,
+          Array.isArray(j.locations) ? j.locations.join(" ") : "",
+          j.description,
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(normalizedSearch);
+      });
+    }, [openJobs, normalizedSearch]);
+
+    // Reset to page 1 when search changes
+    React.useEffect(() => {
+      setCurrentPage(1);
+    }, [jobSearch]);
+
+    const totalPages = Math.ceil(visibleJobs.length / jobsPerPage);
+    const startIndex = (currentPage - 1) * jobsPerPage;
+    const endIndex = startIndex + jobsPerPage;
+    const paginatedJobs = visibleJobs.slice(startIndex, endIndex);
+
+    const handleJobSearchSubmit = useCallback((e) => {
+      if (e?.preventDefault) e.preventDefault();
+    }, []);
+
     if (selectedJobId) {
-      const job = openJobs.find(j => j.id === selectedJobId);
+      const job = openJobs.find((j) => j.id === selectedJobId);
       if (!job) {
         setSelectedJobId(null);
         return null;
       }
-      
+
       return (
         <div className="max-w-5xl mx-auto">
-          <button 
-            onClick={() => setSelectedJobId(null)} 
+          <button
+            onClick={() => setSelectedJobId(null)}
             className="mb-6 flex items-center gap-2 glass-button px-4 py-2 rounded-lg text-gray-800 hover:text-green-700 font-medium hover:shadow-md transition-all"
           >
             ← Back to All Jobs
           </button>
-          
+
           <div className="glass-strong rounded-xl shadow-2xl overflow-hidden">
             {/* Job Header */}
             <div className="bg-gradient-to-r from-green-600 to-green-500 text-white p-8">
@@ -1295,7 +1824,7 @@ function PvaraPhase2() {
           
           {/* Search Bar */}
           <div className="max-w-2xl mx-auto mb-4">
-            <div className="glass-card rounded-xl shadow-lg p-1 flex items-center">
+            <form onSubmit={handleJobSearchSubmit} className="glass-card rounded-xl shadow-lg p-1 flex items-center">
               <svg className="w-5 h-5 text-gray-500 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle cx="11" cy="11" r="8"/>
                 <path d="m21 21-4.35-4.35"/>
@@ -1304,29 +1833,42 @@ function PvaraPhase2() {
                 type="text" 
                 placeholder="Search jobs by title, department, or location..." 
                 className="flex-1 px-4 py-3 bg-transparent border-none outline-none text-gray-800 placeholder-gray-500"
+                value={jobSearch}
+                onChange={(e) => setJobSearch(e.target.value)}
+                aria-label="Search jobs"
               />
-              <button className="glass-button px-6 py-2 rounded-lg font-medium text-gray-800 hover:text-green-700 transition mr-1">
+              <button type="submit" className="glass-button px-6 py-2 rounded-lg font-medium text-gray-800 hover:text-green-700 transition mr-1">
                 Search
               </button>
-            </div>
+            </form>
           </div>
           
-          <div className="glass-button inline-block px-4 py-2 rounded-full text-sm font-medium text-gray-800">
-            {openJobs.length} open position{openJobs.length !== 1 ? 's' : ''} available
+          <div className="flex items-center justify-center gap-4">
+            <div className="glass-button inline-block px-4 py-2 rounded-full text-sm font-medium text-gray-800">
+              {visibleJobs.length} open position{visibleJobs.length !== 1 ? 's' : ''} available
+            </div>
+            <button
+              onClick={handleResetState}
+              className="px-4 py-2 text-xs bg-red-50 text-red-700 rounded-full hover:bg-red-100 transition"
+              title="Reset to default 20 jobs (clears localStorage)"
+            >
+              Reset Jobs
+            </button>
           </div>
         </div>
         
-        {openJobs.length === 0 ? (
+        {visibleJobs.length === 0 ? (
           <div className="glass-card rounded-lg shadow-md p-12 text-center">
             <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
             <h3 className="text-xl font-semibold text-gray-700 mb-2">No Open Positions</h3>
-            <p className="text-gray-500">Check back soon for new opportunities!</p>
+            <p className="text-gray-500">{normalizedSearch ? `No roles match "${jobSearch}"` : "Check back soon for new opportunities!"}</p>
           </div>
         ) : (
+          <>
           <div className="grid grid-cols-1 gap-6">
-            {openJobs.map(job => (
+            {paginatedJobs.map(job => (
               <div
                 key={job.id}
                 className="glass-card rounded-xl shadow-lg hover:shadow-2xl transition-all overflow-hidden border-2 border-white/30 hover:border-green-400 cursor-pointer"
@@ -1384,7 +1926,175 @@ function PvaraPhase2() {
               </div>
             ))}
           </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="mt-8 flex justify-center items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="glass-button px-4 py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md transition"
+              >
+                ← Previous
+              </button>
+              <div className="flex gap-2">
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  let page;
+                  if (totalPages <= 5) {
+                    page = i + 1;
+                  } else if (currentPage <= 3) {
+                    page = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    page = totalPages - 4 + i;
+                  } else {
+                    page = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-4 py-2 rounded-lg font-medium transition ${
+                        currentPage === page
+                          ? 'bg-green-700 text-white shadow-lg'
+                          : 'glass-button hover:shadow-md'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="glass-button px-4 py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md transition"
+              >
+                Next →
+              </button>
+            </div>
+          )}
+          </>
         )}
+      </div>
+    );
+  }
+
+  // Two-Panel HR Review with Job Selection
+  function HRReviewPanel({ jobs, applications, onStatusChange, onAIEvaluate, onBulkAction, onAddNote, onExport }) {
+    const [selectedJobId, setSelectedJobId] = React.useState(jobs[0]?.id || null);
+    
+    const selectedJob = jobs.find(j => j.id === selectedJobId);
+    const filteredApplications = applications.filter(app => app.jobId === selectedJobId);
+    
+    // Calculate stats per job
+    const jobStats = jobs.map(job => {
+      const jobApps = applications.filter(app => app.jobId === job.id);
+      return {
+        jobId: job.id,
+        total: jobApps.length,
+        submitted: jobApps.filter(a => a.status === 'submitted').length,
+        screening: jobApps.filter(a => a.status === 'screening').length,
+        interview: jobApps.filter(a => a.status === 'interview' || a.status === 'phone-interview').length,
+        rejected: jobApps.filter(a => a.status === 'rejected').length,
+        offer: jobApps.filter(a => a.status === 'offer').length,
+      };
+    });
+
+    return (
+      <div className="flex gap-6 h-[calc(100vh-8rem)]">
+        {/* Left Panel - Job List */}
+        <div className="w-80 flex-shrink-0 bg-white rounded-lg shadow-lg p-4 overflow-y-auto">
+          <h2 className="text-xl font-bold mb-4 text-gray-800">Open Positions</h2>
+          <div className="space-y-2">
+            {jobs.map(job => {
+              const stats = jobStats.find(s => s.jobId === job.id);
+              return (
+                <button
+                  key={job.id}
+                  onClick={() => setSelectedJobId(job.id)}
+                  className={`w-full text-left p-3 rounded-lg border-2 transition ${
+                    selectedJobId === job.id
+                      ? 'border-green-700 bg-green-50'
+                      : 'border-gray-200 hover:border-green-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-800 mb-1">{job.title}</div>
+                  <div className="text-xs text-gray-500 mb-2">{job.department}</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-bold text-green-700">{stats.total}</span>
+                    <div className="flex gap-1">
+                      {stats.submitted > 0 && (
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
+                          {stats.submitted} new
+                        </span>
+                      )}
+                      {stats.interview > 0 && (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                          {stats.interview} int
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Panel - Applications for Selected Job */}
+        <div className="flex-1 bg-white rounded-lg shadow-lg p-6 overflow-y-auto">
+          {selectedJob ? (
+            <>
+              {/* Job Header */}
+              <div className="mb-6 pb-4 border-b">
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">{selectedJob.title}</h2>
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    {selectedJob.department}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    {selectedJob.employmentType}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    {filteredApplications.length} applicant{filteredApplications.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
+
+              {/* Applications List */}
+              {filteredApplications.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="font-medium">No applications yet for this position</p>
+                </div>
+              ) : (
+                <CandidateList
+                  candidates={filteredApplications}
+                  onStatusChange={onStatusChange}
+                  onAIEvaluate={() => onAIEvaluate()}
+                  onBulkAction={onBulkAction}
+                  onAddNote={onAddNote}
+                  onExport={onExport}
+                />
+              )}
+            </>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              Select a job position to view applications
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -1392,18 +2102,43 @@ function PvaraPhase2() {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <div className="flex-1 p-4 md:p-6 lg:ml-0 pt-16 lg:pt-6">
-        {/* Modularized views for maintainability */}
-        {view === "jobs" && <JobBoardView />}
-        {view === "dashboard" && <AnalyticsDashboard state={state} />}
-        {view === "apply" && <ApplicationForm onSubmit={submitApplication} jobs={state.jobs} />}
-        {view === "my-apps" && <CandidateList candidates={state.applications} onStatusChange={changeApplicationStatus} />}
-        {view === "admin" && <JobList jobs={state.jobs} onCreate={createJob} onEdit={updateJob} onDelete={deleteJob} />}
-        {view === "hr" && <CandidateList candidates={state.applications} onStatusChange={changeApplicationStatus} />}
-        {view === "ai-screening" && <InterviewRubric rubric={state.rubric} onEvaluate={submitInterviewEvaluation} jobs={state.jobs} applications={state.applications} selectedJobForAI={selectedJobForAI} handleSelectJobForAI={handleSelectJobForAI} />}
-        {view === "analytics" && <AnalyticsDashboard state={state} />}
-        {view === "shortlists" && <ShortlistPanel shortlist={state.shortlists} onUpdate={createShortlist} />}
-        {view === "audit" && <AuditLog auditRecords={state.audit} />}
+      <div className="flex-1 flex flex-col min-h-screen p-4 md:p-6 lg:ml-0 pt-16 lg:pt-6">
+        <div className="flex-1">
+          {/* Modularized views for maintainability */}
+          {view === "jobs" && <JobBoardView />}
+          {view === "dashboard" && <AnalyticsDashboard state={state} onGenerateTestData={handleGenerateTestData} />}
+          {view === "apply" && <ApplicationForm onSubmit={submitApplication} jobs={state.jobs} />}
+          {(view === "candidate-login" || view === "my-apps") && !candidateSession && (
+            <CandidateLogin 
+              onLogin={handleCandidateLogin} 
+              onCancel={() => setView("jobs")} 
+            />
+          )}
+          {view === "my-apps" && candidateSession && (
+            <MyCandidateApplications 
+              applications={state.applications} 
+              candidateProfile={candidateSession}
+              jobs={state.jobs}
+            />
+          )}
+          {view === "admin" && <JobList jobs={state.jobs} onCreate={createJob} onEdit={updateJob} onDelete={deleteJob} />}
+          {view === "hr" && (
+            <HRReviewPanel 
+              jobs={state.jobs}
+              applications={state.applications} 
+              onStatusChange={changeApplicationStatus} 
+              onAIEvaluate={handleAIEvaluation} 
+              onBulkAction={handleBulkAction} 
+              onAddNote={handleAddNote} 
+              onExport={handleExport} 
+            />
+          )}
+          {view === "ai-screening" && <InterviewRubric rubric={state.rubric} onEvaluate={submitInterviewEvaluation} jobs={state.jobs} applications={state.applications} selectedJobForAI={selectedJobForAI} handleSelectJobForAI={handleSelectJobForAI} />}
+          {view === "analytics" && <AnalyticsDashboard state={state} onGenerateTestData={handleGenerateTestData} />}
+          {view === "shortlists" && <ShortlistPanel shortlist={state.shortlists} onUpdate={createShortlist} />}
+          {view === "audit" && <AuditLog auditRecords={state.audit} />}
+        </div>
+
         {/* Toast notifications */}
         <Toasts toasts={state.toasts} />
         
@@ -1414,22 +2149,22 @@ function PvaraPhase2() {
               {/* Brand Section */}
               <div className="col-span-1 md:col-span-2">
                 <div className="flex items-center gap-2 mb-4">
-                  <img src={logo} alt="PVARA" className="h-8" />
-                  <span className="font-display text-2xl font-bold text-green-700">PVARA</span>
+                  <img src={logo} alt="Careers" className="h-8" />
+                  <span className="font-display text-2xl font-bold text-green-700">Careers</span>
                 </div>
                 <p className="text-sm text-gray-600 mb-4">
                   Enterprise Recruitment Portal powered by AI. Streamline your hiring process with intelligent candidate screening and analytics.
                 </p>
                 <div className="flex gap-4">
-                  <a href="#" className="text-gray-600 hover:text-green-700 transition">
+                  <button type="button" className="text-gray-600 hover:text-green-700 transition" aria-label="Visit Facebook">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                  </a>
-                  <a href="#" className="text-gray-600 hover:text-green-700 transition">
+                  </button>
+                  <button type="button" className="text-gray-600 hover:text-green-700 transition" aria-label="Visit Twitter">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
-                  </a>
-                  <a href="#" className="text-gray-600 hover:text-green-700 transition">
+                  </button>
+                  <button type="button" className="text-gray-600 hover:text-green-700 transition" aria-label="Visit LinkedIn">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                  </a>
+                  </button>
                 </div>
               </div>
               
@@ -1437,10 +2172,10 @@ function PvaraPhase2() {
               <div>
                 <h3 className="font-semibold text-gray-800 mb-4">Quick Links</h3>
                 <ul className="space-y-2 text-sm">
-                  <li><a href="#" className="text-gray-600 hover:text-green-700 transition">Browse Jobs</a></li>
-                  <li><a href="#" className="text-gray-600 hover:text-green-700 transition">About Us</a></li>
-                  <li><a href="#" className="text-gray-600 hover:text-green-700 transition">Careers</a></li>
-                  <li><a href="#" className="text-gray-600 hover:text-green-700 transition">Contact</a></li>
+                  <li><button type="button" className="text-gray-600 hover:text-green-700 transition">Browse Jobs</button></li>
+                  <li><button type="button" className="text-gray-600 hover:text-green-700 transition">About Us</button></li>
+                  <li><button type="button" className="text-gray-600 hover:text-green-700 transition">Careers</button></li>
+                  <li><button type="button" className="text-gray-600 hover:text-green-700 transition">Contact</button></li>
                 </ul>
               </div>
               
@@ -1448,10 +2183,10 @@ function PvaraPhase2() {
               <div>
                 <h3 className="font-semibold text-gray-800 mb-4">Support</h3>
                 <ul className="space-y-2 text-sm">
-                  <li><a href="#" className="text-gray-600 hover:text-green-700 transition">Help Center</a></li>
-                  <li><a href="#" className="text-gray-600 hover:text-green-700 transition">Privacy Policy</a></li>
-                  <li><a href="#" className="text-gray-600 hover:text-green-700 transition">Terms of Service</a></li>
-                  <li><a href="#" className="text-gray-600 hover:text-green-700 transition">FAQ</a></li>
+                  <li><button type="button" className="text-gray-600 hover:text-green-700 transition">Help Center</button></li>
+                  <li><button type="button" className="text-gray-600 hover:text-green-700 transition">Privacy Policy</button></li>
+                  <li><button type="button" className="text-gray-600 hover:text-green-700 transition">Terms of Service</button></li>
+                  <li><button type="button" className="text-gray-600 hover:text-green-700 transition">FAQ</button></li>
                 </ul>
               </div>
             </div>

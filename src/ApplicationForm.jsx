@@ -11,6 +11,7 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
     email: "",
     phone: "",
     alternatePhone: "",
+    cnic: "",
     country: "Pakistan",
     streetAddress1: "",
     streetAddress2: "",
@@ -32,10 +33,22 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
   });
 
   const steps = [
-    { name: "Resume", icon: "📄" },
-    { name: "Profile Information", icon: "👤" },
-    { name: "Self-Disclosure", icon: "🔐" },
-    { name: "Review & Submit", icon: "✓" },
+    { 
+      name: "Resume", 
+      icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+    },
+    { 
+      name: "Profile Information", 
+      icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+    },
+    { 
+      name: "Self-Disclosure", 
+      icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+    },
+    { 
+      name: "Review & Submit", 
+      icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    },
   ];
 
   function handleChange(field, value) {
@@ -84,26 +97,30 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
     <div className="max-w-5xl mx-auto">
       {/* Progress Steps */}
       <div className="mb-8 bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           {steps.map((step, index) => (
-            <div key={index} className="flex items-center flex-1">
-              <div className="flex flex-col items-center flex-1">
-                <div className={`flex items-center justify-center w-12 h-12 rounded-full text-xl mb-2 ${
+            <React.Fragment key={index}>
+              <div className="flex flex-col items-center flex-1 min-w-0">
+                <div className={`flex items-center justify-center w-12 h-12 rounded-full mb-2 flex-shrink-0 ${
                   index <= currentStep ? "bg-green-600 text-white" : "bg-gray-200 text-gray-500"
                 }`}>
-                  {index < currentStep ? "✓" : step.icon}
+                  {index < currentStep ? (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : step.icon}
                 </div>
-                <div className={`text-xs font-medium text-center ${index <= currentStep ? "text-green-700" : "text-gray-500"}`}>
+                <div className={`text-xs font-semibold text-center leading-tight mb-1 ${index <= currentStep ? "text-green-700" : "text-gray-500"}`}>
                   {step.name}
                 </div>
-                <div className="text-xs text-gray-400 mt-1">
+                <div className={`text-xs font-medium ${index === currentStep ? "text-green-600" : index < currentStep ? "text-green-500" : "text-gray-400"}`}>
                   {index === currentStep ? "In Progress" : index < currentStep ? "Completed" : "Not Started"}
                 </div>
               </div>
               {index < steps.length - 1 && (
-                <div className={`h-1 flex-1 mx-2 ${index < currentStep ? "bg-green-600" : "bg-gray-200"}`} />
+                <div className={`h-0.5 flex-shrink-0 w-8 md:w-16 lg:w-24 mt-[-30px] ${index < currentStep ? "bg-green-600" : "bg-gray-300"}`} />
               )}
-            </div>
+            </React.Fragment>
           ))}
         </div>
       </div>
@@ -112,8 +129,11 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
         {/* Step 0: Resume/Job Selection */}
         {currentStep === 0 && (
           <div className="bg-white rounded-lg shadow-md p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-              📄 Select Position
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+              <svg className="w-7 h-7 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Select Position
             </h2>
             <div className="space-y-4">
               <div>
@@ -137,8 +157,18 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
                     <h3 className="font-semibold text-blue-900 mb-2">{jobs.find(j => j.id === form.jobId).title}</h3>
                     <p className="text-sm text-blue-700">{jobs.find(j => j.id === form.jobId).description}</p>
                     <div className="mt-3 flex gap-4 text-xs text-blue-600">
-                      <span>📍 {jobs.find(j => j.id === form.jobId).department}</span>
-                      <span>💼 {jobs.find(j => j.id === form.jobId).employmentType}</span>
+                      <span className="flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        {jobs.find(j => j.id === form.jobId).department}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        {jobs.find(j => j.id === form.jobId).employmentType}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -152,8 +182,11 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
           <div className="space-y-6">
             {/* Contact Information */}
             <div className="bg-white rounded-lg shadow-md p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                👤 Contact Information
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                <svg className="w-7 h-7 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Contact Information
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -179,6 +212,28 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Alternate Phone</label>
                   <input value={form.alternatePhone} onChange={e => handleChange('alternatePhone', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    CNIC (National Identity Card) *
+                    <span className="text-xs text-gray-500 ml-2">Format: 12345-1234567-1</span>
+                  </label>
+                  <input 
+                    value={form.cnic} 
+                    onChange={e => {
+                      let val = e.target.value.replace(/[^0-9]/g, '');
+                      if (val.length > 5) val = val.slice(0, 5) + '-' + val.slice(5);
+                      if (val.length > 13) val = val.slice(0, 13) + '-' + val.slice(13);
+                      if (val.length > 15) val = val.slice(0, 15);
+                      handleChange('cnic', val);
+                    }}
+                    placeholder="12345-1234567-1"
+                    pattern="[0-9]{5}-[0-9]{7}-[0-9]{1}"
+                    maxLength="15"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition font-mono" 
+                    required 
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Your CNIC helps us identify your profile and link all your applications</p>
                 </div>
               </div>
 
@@ -217,8 +272,13 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
 
             {/* Education Summary */}
             <div className="bg-white rounded-lg shadow-md p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                🎓 Education Summary
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                <svg className="w-7 h-7 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
+                </svg>
+                Education Summary
               </h2>
               {form.education.map((edu, index) => (
                 <div key={index} className="mb-6 p-6 bg-gray-50 rounded-lg border-2 border-gray-200">
@@ -266,8 +326,11 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
 
             {/* Employment Summary */}
             <div className="bg-white rounded-lg shadow-md p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                💼 Employment Summary
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                <svg className="w-7 h-7 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Employment Summary
               </h2>
               {form.employment.map((emp, index) => (
                 <div key={index} className="mb-6 p-6 bg-gray-50 rounded-lg border-2 border-gray-200">
@@ -336,8 +399,11 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
 
             {/* Skills */}
             <div className="bg-white rounded-lg shadow-md p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                ⚡ Skills
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                <svg className="w-7 h-7 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                Skills
               </h2>
               <div className="flex gap-2 mb-4">
                 <input value={form.skillInput} onChange={e => handleChange('skillInput', e.target.value)} onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addSkill())} placeholder="Add a skill..." className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" />
@@ -359,8 +425,11 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
 
             {/* Languages */}
             <div className="bg-white rounded-lg shadow-md p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                🌐 Languages Spoken
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                <svg className="w-7 h-7 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                </svg>
+                Languages Spoken
               </h2>
               {form.languages.map((lang, index) => (
                 <div key={index} className="mb-4 p-4 bg-gray-50 rounded-lg border-2 border-gray-200 flex items-center gap-4">
@@ -396,8 +465,11 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
         {/* Step 2: Self-Disclosure */}
         {currentStep === 2 && (
           <div className="bg-white rounded-lg shadow-md p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-              🔐 Self-Disclosure (Optional)
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+              <svg className="w-7 h-7 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Self-Disclosure (Optional)
             </h2>
             <div className="space-y-4">
               <div>
@@ -415,8 +487,11 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
         {/* Step 3: Review & Submit */}
         {currentStep === 3 && (
           <div className="bg-white rounded-lg shadow-md p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-              ✓ Review Your Application
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+              <svg className="w-7 h-7 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Review Your Application
             </h2>
             <div className="space-y-6">
               <div className="p-6 bg-green-50 border-2 border-green-200 rounded-lg">
@@ -478,9 +553,12 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
           ) : (
             <button
               type="submit"
-              className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-lg transition shadow-lg hover:shadow-xl"
+              className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-lg transition shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
             >
-              Submit Application ✓
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Submit Application
             </button>
           )}
         </div>

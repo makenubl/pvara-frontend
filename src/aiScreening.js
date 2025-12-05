@@ -126,6 +126,52 @@ export function autoSelectCandidates(candidates, jobRequirements, threshold = 75
 }
 
 /**
+ * Batch evaluate applications with AI and update their status
+ * Returns updated applications with scores and new status
+ */
+export function batchEvaluateApplications(applications, jobs) {
+  return applications.map(app => {
+    // Skip if already evaluated (has aiScore)
+    if (app.aiScore && app.status !== 'submitted') {
+      return app;
+    }
+
+    // Find the job this application is for
+    const job = jobs.find(j => j.id === app.jobId);
+    if (!job) return app;
+
+    // Calculate AI score
+    const scoreResult = calculateCandidateScore(app.applicant, job.fields);
+    const aiScore = scoreResult.totalScore;
+
+    // Auto-update status based on score
+    let newStatus = app.status;
+    if (app.status === 'submitted') {
+      if (aiScore >= 75) {
+        newStatus = 'phone-interview'; // High score - move to interview
+      } else if (aiScore >= 60) {
+        newStatus = 'screening'; // Medium score - needs review
+      } else {
+        newStatus = 'rejected'; // Low score - reject
+      }
+    }
+
+    return {
+      ...app,
+      aiScore,
+      scoreBreakdown: scoreResult.breakdown,
+      status: newStatus,
+      aiEvaluatedAt: new Date().toISOString(),
+      aiRecommendation: aiScore >= 75 
+        ? 'Strong candidate - Recommend interview' 
+        : aiScore >= 60 
+        ? 'Potential fit - Requires screening' 
+        : 'Does not meet requirements',
+    };
+  });
+}
+
+/**
  * Generate hiring analytics and insights
  */
 export function generateAnalytics(state) {
@@ -157,10 +203,10 @@ export function generateAnalytics(state) {
       applicationToOffer: applications.length > 0
         ? Math.round((applications.filter(a => a.status === 'offer').length / applications.length) * 100)
         : 0,
-      screeningToInterview: applications.filter(a => a.status === 'screening').length > 0
+      screeningToInterview: applications.length > 0
         ? Math.round(
-          (applications.filter(a => ['phone-interview', 'interview'].includes(a.status)).length /
-            applications.filter(a => a.status === 'screening').length) *
+          (applications.filter(a => ['phone-interview', 'interview', 'offer'].includes(a.status)).length /
+            applications.length) *
             100
         )
         : 0,
