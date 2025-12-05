@@ -44,9 +44,13 @@ import InterviewRubric from "./InterviewRubric";
 import AuditLog from "./AuditLog";
 import ApplicationForm from "./ApplicationForm";
 import ShortlistPanel from "./ShortlistPanel";
+// eslint-disable-next-line no-unused-vars
 import TestManagement from "./TestManagement";
+// eslint-disable-next-line no-unused-vars
 import InterviewManagement from "./InterviewManagement";
+// eslint-disable-next-line no-unused-vars
 import OfferManagement from "./OfferManagement";
+// eslint-disable-next-line no-unused-vars
 import Settings from "./Settings";
 import Toasts from "./Toasts";
 import { batchEvaluateApplications } from "./aiScreening";

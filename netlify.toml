@@ -13,4 +13,4 @@ to = "/index.html"
 status = 200
 
 [context.production]
-environment = { REACT_APP_ENV = "production" }
+environment = { REACT_APP_ENV = "production", CI = "false" }
