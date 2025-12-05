@@ -1,7 +1,46 @@
 /**
  * PVARA Backend Email Server
- * Handles real email sending for recruitment portal
- * Runs on port 5000
+ * 
+ * PURPOSE:
+ * Handles real email sending for the recruitment portal using Nodemailer.
+ * Supports custom templates from frontend and automatic variable replacement.
+ * 
+ * FEATURES:
+ * - Email template system with variable substitution
+ * - Custom template support from frontend
+ * - HTML email formatting with branding
+ * - Gmail, SendGrid, and AWS SES compatible
+ * - Health check endpoint
+ * - Graceful error handling
+ * 
+ * SETUP INSTRUCTIONS:
+ * 1. Create .env file with:
+ *    EMAIL_USER=your-email@gmail.com
+ *    EMAIL_PASSWORD=your-app-password
+ * 
+ * 2. For Gmail:
+ *    - Enable 2FA
+ *    - Generate App Password: https://myaccount.google.com/apppasswords
+ * 
+ * 3. Start server:
+ *    npm run server
+ * 
+ * ENDPOINTS:
+ * - GET  /health - Health check
+ * - POST /api/send-email - Send basic email
+ * - POST /api/send-email-template - Send templated email
+ * - GET  /api/email-logs - View email logs
+ * 
+ * TEMPLATE VARIABLES:
+ * {{candidateName}} {{jobTitle}} {{salary}} {{date}} {{time}} {{interviewType}}
+ * 
+ * PRODUCTION:
+ * For production, use SendGrid or AWS SES instead of Gmail
+ * See EMAIL_SETUP.md for detailed instructions
+ * 
+ * @author PVARA Development Team
+ * @version 1.0
+ * @port 5000
  */
 
 const express = require('express');
@@ -112,16 +151,21 @@ app.post('/api/send-email', async (req, res) => {
 // Send email with template
 app.post('/api/send-email-template', async (req, res) => {
   try {
-    const { to, templateType, data } = req.body;
+    const { to, templateType, data, customTemplate } = req.body;
 
     if (!to || !templateType) {
       return res.status(400).json({ error: 'Missing required fields: to, templateType' });
     }
 
-    const templates = {
+    // Default templates (fallback)
+    const defaultTemplates = {
       APPLICATION_RECEIVED: {
         subject: `Application Received - ${data?.jobTitle || 'Position'}`,
         body: `Thank you for applying to ${data?.jobTitle || 'our position'}. We have received your application and will review it shortly. You will be notified of the next steps.`,
+      },
+      TEST_INVITED: {
+        subject: `Assessment Test - ${data?.jobTitle || 'Position'}`,
+        body: `Congratulations! You've been selected to take our assessment test for the ${data?.jobTitle || 'position'}. Please check your candidate portal for test details and instructions. The test link will be available shortly.`,
       },
       APPLICATION_SHORTLISTED: {
         subject: `Congratulations! You've been shortlisted`,
@@ -141,10 +185,24 @@ app.post('/api/send-email-template', async (req, res) => {
       },
     };
 
-    const template = templates[templateType];
+    // Use custom template if provided, otherwise use default
+    let template = customTemplate || defaultTemplates[templateType];
+    
     if (!template) {
       return res.status(400).json({ error: `Unknown template: ${templateType}` });
     }
+
+    // Replace template variables with actual data
+    const replaceVariables = (text) => {
+      return text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+        return data?.[key] || match;
+      });
+    };
+
+    template = {
+      subject: replaceVariables(template.subject),
+      body: replaceVariables(template.body)
+    };
 
     const mailOptions = {
       from: process.env.EMAIL_USER || 'noreply@pvara.com',

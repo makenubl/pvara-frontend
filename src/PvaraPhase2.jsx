@@ -1,3 +1,35 @@
+/**
+ * PVARA Phase 2 - Enterprise Recruitment Management System
+ * 
+ * Main application component that orchestrates the entire recruitment workflow.
+ * 
+ * ARCHITECTURE:
+ * - Single-page application with view-based routing
+ * - LocalStorage for data persistence (key: pvara_v3)
+ * - Role-based access control (admin, hr, recruiter, candidate)
+ * - Real-time email notifications (optional backend)
+ * 
+ * WORKFLOW SEQUENCE:
+ * 1. Application Submission → 2. AI Screening → 3. HR Review → 4. Test Management
+ * 5. Interview Management → 6. Shortlisting → 7. Offer Management → 8. Audit Trail
+ * 
+ * KEY FEATURES:
+ * - Complete recruitment pipeline management
+ * - Email template customization (Settings page)
+ * - Audit logging for compliance
+ * - CSV export capabilities
+ * - Bulk operations support
+ * - Real-time toast notifications
+ * 
+ * DEVELOPER NOTES:
+ * - See DEVELOPER_GUIDE.md for comprehensive documentation
+ * - Email setup instructions in EMAIL_SETUP.md
+ * - Test with: npm run dev (starts frontend + email server)
+ * 
+ * @version 2.0
+ * @author PVARA Development Team
+ */
+
 import React, { useEffect, useRef, useState, useCallback, memo } from "react";
 import logo from "./logo.png";
 import "./index.css";
@@ -12,6 +44,10 @@ import InterviewRubric from "./InterviewRubric";
 import AuditLog from "./AuditLog";
 import ApplicationForm from "./ApplicationForm";
 import ShortlistPanel from "./ShortlistPanel";
+import TestManagement from "./TestManagement";
+import InterviewManagement from "./InterviewManagement";
+import OfferManagement from "./OfferManagement";
+import Settings from "./Settings";
 import Toasts from "./Toasts";
 import { batchEvaluateApplications } from "./aiScreening";
 

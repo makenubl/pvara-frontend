@@ -7,14 +7,58 @@ Features added in this branch:
 - Audit viewer with CSV export
 - Admin job create/edit/delete
 - Playwright E2E tests and configuration
+- Email notifications with backend server
 
-Quick start (development):
+## Quick Start (Development)
 
 ```bash
+# Install dependencies
 npm install
+
+# Start frontend only (emails won't be sent)
 npm start
-# open http://localhost:3000
+
+# OR start both frontend + email server
+npm run dev
 ```
+
+## Email Setup (Optional)
+
+The application can send real emails to candidates. To enable this:
+
+### 1. Create .env file
+```bash
+cp .env.example .env
+```
+
+### 2. Configure Gmail App Password
+1. Enable 2-Factor Authentication on your Gmail account
+2. Go to: https://myaccount.google.com/apppasswords
+3. Generate an App Password for "Mail"
+4. Copy the 16-character password
+5. Add to `.env`:
+```
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-16-char-app-password
+```
+
+### 3. Start Email Server
+```bash
+# Start email server only
+npm run server
+
+# OR start both frontend + email server
+npm run dev
+```
+
+### Email Templates Available:
+- **APPLICATION_RECEIVED**: Sent when candidate applies
+- **APPLICATION_SHORTLISTED**: Sent when added to shortlist
+- **INTERVIEW_SCHEDULED**: Sent with interview details
+- **OFFER_EXTENDED**: Sent when offer is made
+- **REJECTION**: Sent when candidate is rejected
+
+**Note**: Emails work without the server (logged to console only). Backend enables real email delivery.
 
 Run unit tests:
 

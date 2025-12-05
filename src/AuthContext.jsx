@@ -28,7 +28,24 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   function login({ username, password }) {
-    const found = demoUsers.find(u => u.username === username && u.password === password);
+    // Check demo users first
+    let found = demoUsers.find(u => u.username === username && u.password === password);
+    
+    // If not found in demo users, check HR users from localStorage
+    if (!found) {
+      try {
+        const stateData = localStorage.getItem('pvara_v3');
+        if (stateData) {
+          const state = JSON.parse(stateData);
+          if (state.hrUsers) {
+            found = state.hrUsers.find(u => u.username === username && u.password === password);
+          }
+        }
+      } catch (err) {
+        console.error('Error reading HR users:', err);
+      }
+    }
+    
     if (!found) return { ok: false, message: "Invalid credentials" };
     const payload = { username: found.username, role: found.role, name: found.name };
     setUser(payload);

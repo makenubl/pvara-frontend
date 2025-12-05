@@ -14,6 +14,7 @@ const JobList = ({ jobs, onCreate, onEdit, onDelete }) => {
     openings: "1",
     employmentType: "Full-time",
     salary: { min: "", max: "" },
+    deadline: "",
     fields: {},
   });
   const [editingJobId, setEditingJobId] = React.useState(null);
@@ -34,6 +35,7 @@ const JobList = ({ jobs, onCreate, onEdit, onDelete }) => {
       openings: "1",
       employmentType: "Full-time",
       salary: { min: "", max: "" },
+      deadline: "",
       fields: {},
     });
     setEditingJobId(null);
@@ -95,6 +97,16 @@ const JobList = ({ jobs, onCreate, onEdit, onDelete }) => {
           <input type="number" value={localForm.salary?.min ?? ""} onChange={(e) => handleLocalSalaryChange('min', e.target.value)} placeholder="Salary Min" className="border p-2 rounded w-full" />
           <input type="number" value={localForm.salary?.max ?? ""} onChange={(e) => handleLocalSalaryChange('max', e.target.value)} placeholder="Salary Max" className="border p-2 rounded w-full" />
         </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Application Deadline</label>
+          <input 
+            type="date" 
+            value={localForm.deadline ?? ""} 
+            onChange={(e) => handleLocalChange('deadline', e.target.value)} 
+            className="border p-2 rounded w-full" 
+          />
+          <p className="text-xs text-gray-500 mt-1">Job posting will automatically close after this date</p>
+        </div>
         {jobErrs.length > 0 && (
           <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
             {jobErrs.map((e, i) => <div key={i}>• {e}</div>)}
@@ -128,6 +140,20 @@ const JobList = ({ jobs, onCreate, onEdit, onDelete }) => {
               <div>
                 <div className="font-semibold">{j.title}</div>
                 <div className="text-xs text-gray-500">{j.department}</div>
+                {j.deadline && (
+                  <div className={`text-xs mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded ${
+                    new Date(j.deadline) < new Date() 
+                      ? 'bg-red-100 text-red-700 font-medium' 
+                      : new Date(j.deadline) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                      ? 'bg-orange-100 text-orange-700'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {new Date(j.deadline) < new Date() ? 'Closed' : `Closes ${new Date(j.deadline).toLocaleDateString()}`}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -135,6 +161,7 @@ const JobList = ({ jobs, onCreate, onEdit, onDelete }) => {
                     setLocalForm({
                       ...j,
                       openings: j.openings !== undefined && j.openings !== null ? String(j.openings) : "",
+                      deadline: j.deadline || "",
                       salary: {
                         min: j.salary?.min !== undefined && j.salary?.min !== null ? String(j.salary.min) : "",
                         max: j.salary?.max !== undefined && j.salary?.max !== null ? String(j.salary.max) : "",

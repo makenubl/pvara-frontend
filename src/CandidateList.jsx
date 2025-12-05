@@ -1,6 +1,6 @@
 import React from "react";
 
-const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction, onAddNote, onExport, onInterviewFeedback }) => {
+const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction, onAddNote, onExport, onInterviewFeedback, shortlists = [], onAddToShortlist, onSendTest, onRecordTestResult }) => {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [selectedIds, setSelectedIds] = React.useState([]);
   const [showCompareModal, setShowCompareModal] = React.useState(false);
@@ -12,12 +12,19 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
   const [isAIScreening, setIsAIScreening] = React.useState(false);
   const [showAllCandidates, setShowAllCandidates] = React.useState(false);
   const [showInterviewModal, setShowInterviewModal] = React.useState(null);
+  const [showApplicationModal, setShowApplicationModal] = React.useState(null);
+  const [showAddToShortlistModal, setShowAddToShortlistModal] = React.useState(false);
+  const [showTestResultsModal, setShowTestResultsModal] = React.useState(null);
+  const [testResultsForm, setTestResultsForm] = React.useState({ score: '', passed: false, notes: '' });
   const [interviewFeedback, setInterviewFeedback] = React.useState({
     technicalRating: 3,
     communicationRating: 3,
     cultureFitRating: 3,
     comments: '',
-    recommendation: 'maybe'
+    recommendation: 'maybe',
+    strengths: '',
+    weaknesses: '',
+    detailedNotes: ''
   });
   const itemsPerPage = 10;
   
@@ -31,6 +38,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
         const status = c.status || 'submitted';
         if (statusFilter === 'new') return status === 'submitted';
         if (statusFilter === 'screening') return status === 'screening';
+        if (statusFilter === 'test-invited') return status === 'test-invited';
         if (statusFilter === 'interview') return status === 'interview' || status === 'phone-interview';
         if (statusFilter === 'rejected') return status === 'rejected';
         if (statusFilter === 'offer') return status === 'offer';
@@ -105,6 +113,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
       all: all.filter(c => c.status !== 'rejected').length,
       new: all.filter(c => (c.status || 'submitted') === 'submitted').length,
       screening: all.filter(c => c.status === 'screening').length,
+      testInvited: all.filter(c => c.status === 'test-invited').length,
       interview: all.filter(c => c.status === 'interview' || c.status === 'phone-interview').length,
       rejected: all.filter(c => c.status === 'rejected').length,
       offer: all.filter(c => c.status === 'offer').length,
@@ -197,7 +206,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
 
   const handleSubmitInterview = () => {
     if (!interviewFeedback.comments.trim()) {
-      alert('Please add interview comments');
+      alert('Please provide comments about the interview');
       return;
     }
     onInterviewFeedback?.(showInterviewModal, interviewFeedback);
@@ -207,8 +216,15 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
       communicationRating: 3,
       cultureFitRating: 3,
       comments: '',
-      recommendation: 'maybe'
+      recommendation: 'maybe',
+      strengths: '',
+      weaknesses: '',
+      detailedNotes: ''
     });
+  };
+
+  const handleOpenApplication = (candidateId) => {
+    setShowApplicationModal(candidateId);
   };
   
   return (
@@ -280,8 +296,21 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
           </div>
         </div>
         
+        {/* Sequential Workflow Info */}
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mt-4">
+          <div className="flex items-start">
+            <svg className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="text-sm text-blue-800">
+              <div className="font-semibold">Sequential Workflow</div>
+              <div className="mt-1">Follow the sequence: <strong>Screening → Send Test → Test Management → Interview → Shortlist</strong>. Candidates must complete each stage before progressing.</div>
+            </div>
+          </div>
+        </div>
+        
         {/* Status Filter Tabs */}
-        <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
+        <div className="flex flex-wrap gap-2 mt-4">
           <button
             onClick={() => setStatusFilter('all')}
             className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition ${
@@ -303,7 +332,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            New ({statusCounts.new})
+            1️⃣ New ({statusCounts.new})
           </button>
           <button
             onClick={() => setStatusFilter('screening')}
@@ -316,7 +345,17 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
-            AI Screened ({statusCounts.screening})
+            2️⃣ AI Screened ({statusCounts.screening})
+          </button>
+          <button
+            onClick={() => setStatusFilter('test-invited')}
+            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition flex items-center gap-2 ${
+              statusFilter === 'test-invited'
+                ? 'bg-orange-600 text-white shadow-lg'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            📝 3️⃣ Test Stage ({statusCounts.testInvited})
           </button>
           <button
             onClick={() => setStatusFilter('interview')}
@@ -329,7 +368,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            Interview ({statusCounts.interview})
+            4️⃣ Interview ({statusCounts.interview})
           </button>
           <button
             onClick={() => setStatusFilter('offer')}
@@ -342,7 +381,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Offer ({statusCounts.offer})
+            5️⃣ Offer ({statusCounts.offer})
           </button>
           <button
             onClick={() => {
@@ -406,31 +445,83 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
         </div>
       </div>
 
-      {/* Bulk Action Toolbar */}
+      {/* Bulk Action Toolbar - Contextual based on status */}
       {selectedIds.length > 0 && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 flex items-center justify-between">
           <div className="font-semibold text-green-900">
             {selectedIds.length} candidate{selectedIds.length > 1 ? 's' : ''} selected
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => handleBulkAction('interview')}
-              className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-            >
-              Move to Interview
-            </button>
-            <button
-              onClick={() => handleBulkAction('screening')}
-              className="px-3 py-1.5 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700"
-            >
-              Move to Screening
-            </button>
-            <button
-              onClick={() => handleBulkAction('rejected')}
-              className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-            >
-              Reject
-            </button>
+            {/* Screening: Send Test to move forward in sequence */}
+            {statusFilter === 'screening' && (
+              <>
+                <button
+                  onClick={() => {
+                    onSendTest?.(selectedIds);
+                    setSelectedIds([]);
+                  }}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                >
+                  📝 Send Test to Selected
+                </button>
+                <button
+                  onClick={() => handleBulkAction('rejected')}
+                  className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                >
+                  Reject
+                </button>
+              </>
+            )}
+            
+            {/* New: Only Reject (not screened yet) */}
+            {(statusFilter === 'all' || statusFilter === 'new') && (
+              <button
+                onClick={() => handleBulkAction('rejected')}
+                className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+              >
+                Reject
+              </button>
+            )}
+            
+            {/* Test stages handled in Test Management page */}
+            {statusFilter === 'test-invited' && (
+              <div className="px-3 py-1.5 bg-orange-50 text-orange-700 rounded text-sm border border-orange-200">
+                ℹ️ Use "Test Management" page to manage tests
+              </div>
+            )}
+            
+            {/* Interview: Add to Shortlist */}
+            {statusFilter === 'interview' && (
+              <>
+                <button
+                  onClick={() => setShowAddToShortlistModal(true)}
+                  className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700"
+                >
+                  Add to Shortlist
+                </button>
+                <button
+                  onClick={() => handleBulkAction('rejected')}
+                  className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                >
+                  Reject
+                </button>
+              </>
+            )}
+            
+            {/* Rejected: Reconsider option */}
+            {statusFilter === 'rejected' && (
+              <button
+                onClick={() => {
+                  handleBulkAction('screening');
+                  setSelectedIds([]);
+                }}
+                className="px-3 py-1.5 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700"
+              >
+                ↩️ Reconsider Selected
+              </button>
+            )}
+            
+            {/* Always show Compare and Clear */}
             <button
               onClick={handleCompare}
               className="px-3 py-1.5 bg-gray-700 text-white rounded text-sm hover:bg-gray-800"
@@ -447,13 +538,45 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
         </div>
       )}
       
+      {/* Stage-specific helper text */}
+      {statusFilter === 'test-invited' && displayCandidates.length > 0 && (
+        <div className="bg-orange-50 border-l-4 border-orange-500 p-3 mb-4">
+          <div className="flex items-start">
+            <svg className="w-5 h-5 text-orange-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <div className="text-sm text-orange-800">
+              <div className="font-semibold">Test Stage - Action Required</div>
+              <div className="mt-1">These candidates have been sent tests. Click "⏱️ Record Result" on each candidate to enter their test scores. Passed candidates will automatically move to the Interview tab.</div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {statusFilter === 'rejected' && displayCandidates.length > 0 && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-3 mb-4">
+          <div className="flex items-start">
+            <svg className="w-5 h-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="text-sm text-red-800">
+              <div className="font-semibold">Rejected Candidates</div>
+              <div className="mt-1">These candidates were rejected. You can "↩️ Reconsider" them to move back to screening stage for another review. Their previous test scores (if any) are preserved.</div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {displayCandidates.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           <p className="font-medium">No applications found</p>
-          {(searchQuery || statusFilter !== 'all') && (
+          {statusFilter === 'test-invited' && (
+            <p className="text-sm mt-2">No candidates have been sent tests yet. Go to the New or AI Screened tab to send tests.</p>
+          )}
+          {(searchQuery || (statusFilter !== 'all' && statusFilter !== 'test-invited')) && (
             <button
               onClick={() => {
                 setSearchQuery('');
@@ -561,20 +684,98 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
                 )}
                 
                 <div className="flex gap-2 flex-wrap">
-                  {onStatusChange && (
+                  {/* Always show View Application */}
+                  <button 
+                    className="px-2 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700"
+                    onClick={() => handleOpenApplication(c.id)}
+                    title="View Full Application"
+                  >
+                    📄 View App
+                  </button>
+                  
+                  {/* Sequential Actions based on Status */}
+                  {c.status === 'submitted' && (
+                    <button 
+                      className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700" 
+                      onClick={() => onStatusChange(c.id, "rejected")}
+                    >
+                      Reject
+                    </button>
+                  )}
+                  
+                  {c.status === 'screening' && (
                     <>
-                      <button className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700" onClick={() => onStatusChange(c.id, "interview")}>Interview</button>
-                      <button className="px-2 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700" onClick={() => onStatusChange(c.id, "screening")}>Screen</button>
-                      <button className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700" onClick={() => onStatusChange(c.id, "rejected")}>Reject</button>
+                      <button 
+                        className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700" 
+                        onClick={() => onSendTest?.([c.id])}
+                      >
+                        📝 Send Test
+                      </button>
+                      <button 
+                        className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700" 
+                        onClick={() => onStatusChange(c.id, "rejected")}
+                      >
+                        Reject
+                      </button>
                     </>
                   )}
-                  <button 
-                    className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-                    onClick={() => handleOpenInterviewModal(c.id)}
-                    title={c.interviewFeedback ? "View/Edit Feedback" : "Add Interview Feedback"}
-                  >
-                    {c.interviewFeedback ? '✓ Feedback' : 'Interview'}
-                  </button>
+                  
+                  {c.status === 'test-invited' && (
+                    <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs">
+                      📝 In Test Management
+                    </span>
+                  )}
+                  
+                  {c.testResults && c.testResults.status === 'completed' && (
+                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                      ✓ Test: {c.testResults.score}%
+                    </span>
+                  )}
+                  
+                  {c.status === 'interview' && (
+                    <>
+                      <button 
+                        className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                        onClick={() => handleOpenInterviewModal(c.id)}
+                        title={c.interviewFeedback ? "View/Edit Feedback" : "Add Interview Feedback"}
+                      >
+                        {c.interviewFeedback ? '✓ Feedback' : '📅 Interview'}
+                      </button>
+                      <button 
+                        className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700" 
+                        onClick={() => onStatusChange(c.id, "rejected")}
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
+                  
+                  {/* Rejected candidates can be reconsidered */}
+                  {c.status === 'rejected' && (
+                    <>
+                      <button 
+                        className="px-2 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700"
+                        onClick={() => onStatusChange(c.id, "screening")}
+                        title="Move back to screening"
+                      >
+                        ↩️ Reconsider
+                      </button>
+                      {c.testResults && (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                          Previous Test: {c.testResults.score}% ({c.testResults.passed ? 'Passed' : 'Failed'})
+                        </span>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Offer status */}
+                  {c.status === 'offer' && (
+                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                      🎉 Offer Extended
+                    </span>
+                  )}
+                  
+                  {/* Always show Add Note */}
                   <button 
                     className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700"
                     onClick={() => setShowNotesModal(c.id)}
@@ -660,9 +861,9 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
       {/* Interview Feedback Modal */}
       {showInterviewModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 my-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-800">Interview Feedback</h3>
+          <div className="bg-white rounded-lg shadow-xl max-w-xl w-full p-4 my-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">Interview Feedback</h3>
               <button
                 onClick={() => setShowInterviewModal(null)}
                 className="text-gray-500 hover:text-gray-700"
@@ -673,12 +874,12 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
               </button>
             </div>
             
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Technical Skills Rating */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Technical Skills
-                  <span className="ml-2 text-lg font-bold text-blue-600">{interviewFeedback.technicalRating}/5</span>
+                  <span className="ml-2 text-base font-bold text-blue-600">{interviewFeedback.technicalRating}/5</span>
                 </label>
                 <input
                   type="range"
@@ -699,9 +900,9 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
 
               {/* Communication Rating */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Communication Skills
-                  <span className="ml-2 text-lg font-bold text-green-600">{interviewFeedback.communicationRating}/5</span>
+                  <span className="ml-2 text-base font-bold text-green-600">{interviewFeedback.communicationRating}/5</span>
                 </label>
                 <input
                   type="range"
@@ -722,9 +923,9 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
 
               {/* Culture Fit Rating */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Culture Fit
-                  <span className="ml-2 text-lg font-bold text-purple-600">{interviewFeedback.cultureFitRating}/5</span>
+                  <span className="ml-2 text-base font-bold text-purple-600">{interviewFeedback.cultureFitRating}/5</span>
                 </label>
                 <input
                   type="range"
@@ -744,36 +945,75 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
               </div>
 
               {/* Overall Average */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Overall Average</div>
-                <div className="text-3xl font-bold text-gray-800">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-xs text-gray-600">Overall Average</div>
+                <div className="text-2xl font-bold text-gray-800">
                   {((interviewFeedback.technicalRating + interviewFeedback.communicationRating + interviewFeedback.cultureFitRating) / 3).toFixed(1)}/5
                 </div>
               </div>
 
-              {/* Comments */}
+              {/* Strengths */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Interview Comments <span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Key Strengths
+                </label>
+                <textarea
+                  value={interviewFeedback.strengths}
+                  onChange={(e) => setInterviewFeedback(prev => ({ ...prev, strengths: e.target.value }))}
+                  placeholder="What did the candidate excel at?"
+                  className="w-full border rounded-lg p-2 h-20 resize-none text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Weaknesses/Concerns */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Areas of Concern
+                </label>
+                <textarea
+                  value={interviewFeedback.weaknesses}
+                  onChange={(e) => setInterviewFeedback(prev => ({ ...prev, weaknesses: e.target.value }))}
+                  placeholder="Any concerns or areas needing improvement?"
+                  className="w-full border rounded-lg p-2 h-20 resize-none text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Overall Comments */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Overall Comments <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={interviewFeedback.comments}
                   onChange={(e) => setInterviewFeedback(prev => ({ ...prev, comments: e.target.value }))}
-                  placeholder="Share your observations, strengths, concerns, and any other relevant feedback..."
-                  className="w-full border rounded-lg p-3 h-32 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Summary of interview, fit for role, next steps..."
+                  className="w-full border rounded-lg p-2 h-24 resize-none text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
+                />
+              </div>
+
+              {/* Detailed Notes */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Detailed Interview Notes
+                </label>
+                <textarea
+                  value={interviewFeedback.detailedNotes}
+                  onChange={(e) => setInterviewFeedback(prev => ({ ...prev, detailedNotes: e.target.value }))}
+                  placeholder="Technical discussion, problem-solving approach, behavioral responses..."
+                  className="w-full border rounded-lg p-2 h-32 resize-none text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
               {/* Recommendation */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Hiring Recommendation
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => setInterviewFeedback(prev => ({ ...prev, recommendation: 'hire' }))}
-                    className={`py-3 px-4 rounded-lg font-medium transition ${
+                    className={`py-2 px-3 rounded-lg text-sm font-medium transition ${
                       interviewFeedback.recommendation === 'hire'
                         ? 'bg-green-600 text-white shadow-lg scale-105'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -783,7 +1023,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
                   </button>
                   <button
                     onClick={() => setInterviewFeedback(prev => ({ ...prev, recommendation: 'maybe' }))}
-                    className={`py-3 px-4 rounded-lg font-medium transition ${
+                    className={`py-2 px-3 rounded-lg text-sm font-medium transition ${
                       interviewFeedback.recommendation === 'maybe'
                         ? 'bg-yellow-500 text-white shadow-lg scale-105'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -793,7 +1033,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
                   </button>
                   <button
                     onClick={() => setInterviewFeedback(prev => ({ ...prev, recommendation: 'no-hire' }))}
-                    className={`py-3 px-4 rounded-lg font-medium transition ${
+                    className={`py-2 px-3 rounded-lg text-sm font-medium transition ${
                       interviewFeedback.recommendation === 'no-hire'
                         ? 'bg-red-600 text-white shadow-lg scale-105'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -806,16 +1046,16 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 mt-8">
+            <div className="flex gap-2 mt-4">
               <button
                 onClick={handleSubmitInterview}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold shadow-lg"
+                className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 font-semibold"
               >
                 Save Feedback
               </button>
               <button
                 onClick={() => setShowInterviewModal(null)}
-                className="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 font-semibold"
+                className="px-4 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 font-semibold"
               >
                 Cancel
               </button>
@@ -908,6 +1148,599 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
                 className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800"
               >
                 Close Comparison
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Application Details Modal */}
+      {showApplicationModal && (() => {
+        const candidate = (candidates || []).find(c => c.id === showApplicationModal);
+        if (!candidate) return null;
+        
+        const applicant = candidate.applicant || {};
+        
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full my-8 max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center z-10">
+                <h3 className="text-2xl font-bold text-gray-900">Application Details</h3>
+                <button
+                  onClick={() => setShowApplicationModal(null)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                {/* Header: Name and Status */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      {applicant.firstName} {applicant.lastName}
+                    </h2>
+                    {applicant.preferredName && (
+                      <p className="text-gray-600 italic">Preferred: {applicant.preferredName}</p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <span className={`inline-block px-3 py-1 rounded-lg text-sm font-medium ${
+                      candidate.status === 'offer' ? 'bg-green-100 text-green-700' :
+                      candidate.status === 'interview' ? 'bg-blue-100 text-blue-700' :
+                      candidate.status === 'screening' ? 'bg-yellow-100 text-yellow-700' :
+                      candidate.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {candidate.status || 'submitted'}
+                    </span>
+                    {candidate.aiScore && (
+                      <div className="mt-2">
+                        <div className={`text-3xl font-bold ${
+                          candidate.aiScore >= 75 ? 'text-green-600' : 
+                          candidate.aiScore >= 60 ? 'text-yellow-600' : 'text-red-600'
+                        }`}>
+                          {candidate.aiScore}/100
+                        </div>
+                        <div className="text-xs text-gray-500">AI Score</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* AI Recommendation */}
+                {candidate.aiRecommendation && (
+                  <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
+                    <div className="flex items-start">
+                      <svg className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <div className="font-semibold text-blue-900">AI Recommendation</div>
+                        <div className="text-blue-800">{candidate.aiRecommendation}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Contact Information */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Contact Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs text-gray-500 uppercase">Email</div>
+                      <div className="font-medium text-gray-900">{applicant.email || candidate.email}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 uppercase">Phone</div>
+                      <div className="font-medium text-gray-900">{applicant.phone || candidate.phone || 'N/A'}</div>
+                    </div>
+                    {applicant.alternatePhone && (
+                      <div>
+                        <div className="text-xs text-gray-500 uppercase">Alternate Phone</div>
+                        <div className="font-medium text-gray-900">{applicant.alternatePhone}</div>
+                      </div>
+                    )}
+                    {applicant.cnic && (
+                      <div>
+                        <div className="text-xs text-gray-500 uppercase">CNIC</div>
+                        <div className="font-medium text-gray-900">{applicant.cnic}</div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Address */}
+                  {(applicant.streetAddress1 || applicant.city) && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="text-xs text-gray-500 uppercase mb-1">Address</div>
+                      <div className="text-gray-900">
+                        {applicant.streetAddress1 && <div>{applicant.streetAddress1}</div>}
+                        {applicant.streetAddress2 && <div>{applicant.streetAddress2}</div>}
+                        <div>
+                          {[applicant.city, applicant.state, applicant.postalCode].filter(Boolean).join(', ')}
+                          {applicant.country && ` - ${applicant.country}`}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Education */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    Education
+                  </h3>
+                  {applicant.education && applicant.education.length > 0 ? (
+                    <div className="space-y-3">
+                      {applicant.education.map((edu, idx) => (
+                        <div key={idx} className="border-l-2 border-blue-500 pl-4">
+                          <div className="font-semibold text-gray-900">{edu.degree || candidate.degree}</div>
+                          <div className="text-gray-700">{edu.fieldOfStudy}</div>
+                          <div className="text-sm text-gray-600">{edu.school}</div>
+                          <div className="text-xs text-gray-500">
+                            {edu.graduated === 'yes' ? 'Graduated' : edu.stillAttending ? 'Currently Attending' : 'Did Not Graduate'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-gray-600">{candidate.degree || 'No education information provided'}</div>
+                  )}
+                </div>
+
+                {/* Employment History */}
+                {applicant.employment && applicant.employment.length > 0 && applicant.employment[0].employer && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Employment History
+                    </h3>
+                    <div className="space-y-4">
+                      {applicant.employment.map((job, idx) => (
+                        <div key={idx} className="border-l-2 border-green-500 pl-4">
+                          <div className="font-semibold text-gray-900">{job.jobTitle}</div>
+                          <div className="text-gray-700">{job.employer}</div>
+                          <div className="text-sm text-gray-600">
+                            {job.startMonth} {job.startYear} - {job.currentEmployer ? 'Present' : `${job.endMonth} ${job.endYear}`}
+                          </div>
+                          {job.description && (
+                            <div className="text-sm text-gray-600 mt-2">{job.description}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 text-sm text-gray-600">
+                      <strong>Total Experience:</strong> {candidate.experienceYears || applicant.experienceYears || 'N/A'} years
+                    </div>
+                  </div>
+                )}
+
+                {/* Skills */}
+                {applicant.skills && applicant.skills.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                      </svg>
+                      Skills
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {applicant.skills.map((skill, idx) => (
+                        <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Languages */}
+                {applicant.languages && applicant.languages.length > 0 && applicant.languages[0].language && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                      </svg>
+                      Languages
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {applicant.languages.map((lang, idx) => (
+                        <div key={idx} className="bg-white border border-gray-200 rounded-lg p-2">
+                          <div className="font-medium text-gray-900">{lang.language}</div>
+                          <div className="text-sm text-gray-600">{lang.proficiency}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cover Letter */}
+                {applicant.coverLetter && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Cover Letter
+                    </h3>
+                    <div className="text-gray-700 whitespace-pre-wrap bg-white border border-gray-200 rounded p-3">
+                      {applicant.coverLetter}
+                    </div>
+                  </div>
+                )}
+
+                {/* Portfolio Link */}
+                {applicant.portfolioLink && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                      Portfolio / Website
+                    </h3>
+                    <a 
+                      href={applicant.portfolioLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      {applicant.portfolioLink}
+                    </a>
+                  </div>
+                )}
+
+                {/* Interview Feedback */}
+                {candidate.interviewFeedback && (
+                  <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-green-900 mb-3 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Interview Feedback
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-white rounded p-2">
+                          <div className="text-xs text-gray-600">Technical</div>
+                          <div className="text-lg font-bold text-blue-600">{candidate.interviewFeedback.technicalRating}/5</div>
+                        </div>
+                        <div className="bg-white rounded p-2">
+                          <div className="text-xs text-gray-600">Communication</div>
+                          <div className="text-lg font-bold text-green-600">{candidate.interviewFeedback.communicationRating}/5</div>
+                        </div>
+                        <div className="bg-white rounded p-2">
+                          <div className="text-xs text-gray-600">Culture Fit</div>
+                          <div className="text-lg font-bold text-purple-600">{candidate.interviewFeedback.cultureFitRating}/5</div>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded p-3">
+                        <div className="text-sm font-semibold text-gray-700 mb-1">Overall Score</div>
+                        <div className="text-2xl font-bold text-gray-900">{candidate.interviewFeedback.overallScore}/5</div>
+                      </div>
+                      {candidate.interviewFeedback.strengths && (
+                        <div className="bg-white rounded p-3">
+                          <div className="text-sm font-semibold text-green-700 mb-1">Strengths</div>
+                          <div className="text-gray-700">{candidate.interviewFeedback.strengths}</div>
+                        </div>
+                      )}
+                      {candidate.interviewFeedback.weaknesses && (
+                        <div className="bg-white rounded p-3">
+                          <div className="text-sm font-semibold text-red-700 mb-1">Concerns</div>
+                          <div className="text-gray-700">{candidate.interviewFeedback.weaknesses}</div>
+                        </div>
+                      )}
+                      <div className="bg-white rounded p-3">
+                        <div className="text-sm font-semibold text-gray-700 mb-1">Comments</div>
+                        <div className="text-gray-700">{candidate.interviewFeedback.comments}</div>
+                      </div>
+                      {candidate.interviewFeedback.detailedNotes && (
+                        <div className="bg-white rounded p-3">
+                          <div className="text-sm font-semibold text-gray-700 mb-1">Detailed Notes</div>
+                          <div className="text-gray-700 whitespace-pre-wrap">{candidate.interviewFeedback.detailedNotes}</div>
+                        </div>
+                      )}
+                      <div className="bg-white rounded p-3">
+                        <div className="text-sm font-semibold text-gray-700 mb-1">Recommendation</div>
+                        <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                          candidate.interviewFeedback.recommendation === 'hire' ? 'bg-green-100 text-green-800' :
+                          candidate.interviewFeedback.recommendation === 'no-hire' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {candidate.interviewFeedback.recommendation === 'hire' ? '✓ Hire' :
+                           candidate.interviewFeedback.recommendation === 'no-hire' ? '✗ No Hire' :
+                           '? Maybe'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600 bg-white rounded p-2">
+                        Interviewed by {candidate.interviewFeedback.interviewer} on {new Date(candidate.interviewFeedback.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {candidate.notes && candidate.notes.length > 0 && (
+                  <div className="bg-purple-50 border-l-4 border-purple-500 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-purple-900 mb-3 flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                      </svg>
+                      Internal Notes ({candidate.notes.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {candidate.notes.map((note, idx) => (
+                        <div key={idx} className="bg-white rounded p-3">
+                          <div className="text-gray-700">{note.text}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            by {note.author} • {new Date(note.timestamp).toLocaleString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4 border-t">
+                  <button
+                    onClick={() => {
+                      setShowApplicationModal(null);
+                      handleOpenInterviewModal(candidate.id);
+                    }}
+                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 font-medium"
+                  >
+                    {candidate.interviewFeedback ? 'Edit Interview Feedback' : 'Add Interview Feedback'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowApplicationModal(null);
+                      setShowNotesModal(candidate.id);
+                    }}
+                    className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 font-medium"
+                  >
+                    Add Note
+                  </button>
+                  <button
+                    onClick={() => setShowApplicationModal(null)}
+                    className="px-6 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 font-medium"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Add to Shortlist Modal */}
+      {showAddToShortlistModal && (() => {
+        // Filter to only show interviewed candidates
+        const interviewedIds = selectedIds.filter(id => {
+          const candidate = candidates.find(c => c.id === id);
+          return candidate && (candidate.status === 'interview' || candidate.status === 'phone-interview' || candidate.interviewFeedback);
+        });
+        const notInterviewedIds = selectedIds.filter(id => !interviewedIds.includes(id));
+        
+        return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Add to Shortlist</h3>
+              <button
+                onClick={() => setShowAddToShortlistModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {notInterviewedIds.length > 0 && (
+              <div className="bg-yellow-50 border-l-4 border-yellow-500 p-3 mb-4">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-yellow-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div className="text-sm">
+                    <div className="font-semibold text-yellow-900">Interview Required</div>
+                    <div className="text-yellow-800 mt-1">
+                      {notInterviewedIds.length} candidate{notInterviewedIds.length > 1 ? 's haven\'t' : ' hasn\'t'} been interviewed yet. 
+                      Shortlist is for candidates ready for final offer decision.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {interviewedIds.length > 0 ? (
+              <p className="text-gray-600 mb-4">
+                Add {interviewedIds.length} interviewed candidate{interviewedIds.length > 1 ? 's' : ''} to shortlist:
+              </p>
+            ) : (
+              <p className="text-gray-600 mb-4">
+                No interviewed candidates selected. Please interview candidates before adding to shortlist.
+              </p>
+            )}
+
+            {interviewedIds.length === 0 ? (
+              <div className="text-center py-8">
+                <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p className="text-gray-500 mb-2">Cannot add to shortlist</p>
+                <p className="text-sm text-gray-400">Candidates must be interviewed first</p>
+              </div>
+            ) : shortlists.length === 0 ? (
+              <div className="text-center py-8">
+                <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <p className="text-gray-500 mb-2">No shortlists yet</p>
+                <p className="text-sm text-gray-400">Go to Shortlists tab to create one</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {shortlists.map((sl) => (
+                  <button
+                    key={sl.id}
+                    onClick={() => {
+                      onAddToShortlist?.(sl.id, interviewedIds);
+                      setShowAddToShortlistModal(false);
+                      setSelectedIds([]);
+                    }}
+                    className="w-full text-left p-3 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all"
+                  >
+                    <div className="font-semibold text-gray-900">{sl.name || `Shortlist ${sl.id}`}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {sl.items?.length || 0} candidate{sl.items?.length !== 1 ? 's' : ''} • Created {new Date(sl.createdAt).toLocaleDateString()}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-4 pt-4 border-t">
+              <button
+                onClick={() => setShowAddToShortlistModal(false)}
+                className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+
+      {/* Test Results Modal */}
+      {showTestResultsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Record Test Results</h3>
+              <button
+                onClick={() => setShowTestResultsModal(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Score */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Test Score (%) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={testResultsForm.score}
+                  onChange={(e) => setTestResultsForm(prev => ({ ...prev, score: e.target.value }))}
+                  placeholder="Enter score (0-100)"
+                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Pass/Fail */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Result
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setTestResultsForm(prev => ({ ...prev, passed: true }))}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
+                      testResultsForm.passed
+                        ? 'bg-green-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    ✓ Passed
+                  </button>
+                  <button
+                    onClick={() => setTestResultsForm(prev => ({ ...prev, passed: false }))}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
+                      !testResultsForm.passed
+                        ? 'bg-red-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    ✗ Failed
+                  </button>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={testResultsForm.notes}
+                  onChange={(e) => setTestResultsForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Any additional observations about the test..."
+                  className="w-full border rounded-lg p-2 h-24 resize-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Info Box */}
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-3">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-sm text-blue-800">
+                    <div className="font-semibold">Future Integration Ready</div>
+                    <div className="mt-1">This system is designed to integrate with external test providers like HackerRank, Codility, or custom testing platforms.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => {
+                  if (!testResultsForm.score) {
+                    alert('Please enter a test score');
+                    return;
+                  }
+                  onRecordTestResult?.(showTestResultsModal, {
+                    score: parseInt(testResultsForm.score),
+                    passed: testResultsForm.passed,
+                    notes: testResultsForm.notes
+                  });
+                  setShowTestResultsModal(null);
+                  setTestResultsForm({ score: '', passed: false, notes: '' });
+                }}
+                className="flex-1 bg-orange-600 text-white py-2 rounded-lg hover:bg-orange-700 font-semibold"
+              >
+                Save Results
+              </button>
+              <button
+                onClick={() => setShowTestResultsModal(null)}
+                className="px-4 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 font-semibold"
+              >
+                Cancel
               </button>
             </div>
           </div>
