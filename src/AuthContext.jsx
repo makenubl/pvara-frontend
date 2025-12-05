@@ -13,8 +13,14 @@ const demoUsers = [
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("pvara_user")) || null;
-    } catch { return null; }
+      const stored = localStorage.getItem("pvara_user");
+      if (stored) return JSON.parse(stored);
+      // Auto-login as admin for demo
+      const defaultUser = { username: "admin", role: "admin", name: "Admin User" };
+      return defaultUser;
+    } catch { 
+      return { username: "admin", role: "admin", name: "Admin User" };
+    }
   });
 
   useEffect(() => {
