@@ -84,24 +84,27 @@ const SystemDashboard = () => {
     
     try {
       // Fetch applications
-      const appsResponse = await axios.get(`${apiUrl}/applications`, {
+      const appsResponse = await axios.get(`${apiUrl}/api/applications`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       
       // Fetch jobs
-      const jobsResponse = await axios.get(`${apiUrl}/jobs`);
+      const jobsResponse = await axios.get(`${apiUrl}/api/jobs`);
+      
+      const applications = appsResponse.data.applications || appsResponse.data || [];
+      const jobs = jobsResponse.data.jobs || jobsResponse.data || [];
       
       setStats({
-        totalApplications: appsResponse.data.length || 0,
-        totalJobs: jobsResponse.data.length || 0,
-        totalCandidates: appsResponse.data.length || 0,
+        totalApplications: applications.length || 0,
+        totalJobs: jobs.length || 0,
+        totalCandidates: applications.length || 0,
         processingQueue: Math.floor(Math.random() * 10), // Mock
         avgResponseTime: systemStatus.api.responseTime,
         uptime: calculateUptime()
       });
 
       // Calculate current load
-      const currentRPS = Math.floor(appsResponse.data.length / 3600); // rough estimate
+      const currentRPS = Math.floor(applications.length / 3600); // rough estimate
       setPerformance(prev => ({
         ...prev,
         requestsPerSecond: currentRPS,

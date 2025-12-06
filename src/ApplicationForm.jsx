@@ -1,9 +1,9 @@
 import React from "react";
 
-const ApplicationForm = ({ onSubmit, jobs = [] }) => {
+const ApplicationForm = ({ onSubmit, jobs = [], selectedJobId = "" }) => {
   const [currentStep, setCurrentStep] = React.useState(0);
   const [form, setForm] = React.useState({
-    jobId: jobs[0]?.id || "",
+    jobId: selectedJobId || jobs[0]?._id || "",
     // Contact Information
     firstName: "",
     lastName: "",
@@ -50,6 +50,13 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
       icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
     },
   ];
+
+  // Update jobId when selectedJobId prop changes
+  React.useEffect(() => {
+    if (selectedJobId) {
+      setForm((prev) => ({ ...prev, jobId: selectedJobId }));
+    }
+  }, [selectedJobId]);
 
   function handleChange(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -144,30 +151,27 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
                   required
                 >
-                  {jobs.length === 0 ? (
-                    <option value="">No jobs available</option>
-                  ) : (
-                    jobs.map(j => (
-                      <option key={j.id} value={j.id}>{j.title} — {j.department}</option>
-                    ))
-                  )}
+                  <option value="">-- Select a position --</option>
+                  {jobs.map(j => (
+                    <option key={j._id || j.id} value={j._id || j.id}>{j.title} — {j.department}</option>
+                  ))}
                 </select>
-                {jobs.find(j => j.id === form.jobId) && (
+                {jobs.find(j => (j._id || j.id) === form.jobId) && (
                   <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h3 className="font-semibold text-blue-900 mb-2">{jobs.find(j => j.id === form.jobId).title}</h3>
-                    <p className="text-sm text-blue-700">{jobs.find(j => j.id === form.jobId).description}</p>
+                    <h3 className="font-semibold text-blue-900 mb-2">{jobs.find(j => (j._id || j.id) === form.jobId).title}</h3>
+                    <p className="text-sm text-blue-700">{jobs.find(j => (j._id || j.id) === form.jobId).description}</p>
                     <div className="mt-3 flex gap-4 text-xs text-blue-600">
                       <span className="flex items-center gap-1">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
-                        {jobs.find(j => j.id === form.jobId).department}
+                        {jobs.find(j => (j._id || j.id) === form.jobId).department}
                       </span>
                       <span className="flex items-center gap-1">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
-                        {jobs.find(j => j.id === form.jobId).employmentType}
+                        {jobs.find(j => (j._id || j.id) === form.jobId).employmentType}
                       </span>
                     </div>
                   </div>
@@ -496,7 +500,7 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
             <div className="space-y-6">
               <div className="p-6 bg-green-50 border-2 border-green-200 rounded-lg">
                 <h3 className="font-bold text-lg text-green-900 mb-4">Position</h3>
-                <p className="text-green-700">{jobs.find(j => j.id === form.jobId)?.title}</p>
+                <p className="text-green-700">{jobs.find(j => (j._id || j.id) === form.jobId)?.title}</p>
               </div>
               <div className="p-6 bg-blue-50 border-2 border-blue-200 rounded-lg">
                 <h3 className="font-bold text-lg text-blue-900 mb-4">Contact</h3>

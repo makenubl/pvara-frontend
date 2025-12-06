@@ -34,8 +34,9 @@ function InterviewManagement({
       
       if (!isInterview) return false;
 
-      // Filter by job
-      if (selectedJob !== 'all' && app.jobId !== selectedJob) return false;
+      // Filter by job (handle populated jobId)
+      const appJobId = typeof app.jobId === 'object' ? app.jobId._id : app.jobId;
+      if (selectedJob !== 'all' && appJobId !== selectedJob) return false;
 
       // Filter by feedback status
       if (filterStatus === 'pending') return !app.interviewFeedback;
@@ -62,17 +63,28 @@ function InterviewManagement({
   const handleSubmitFeedback = () => {
     if (!feedbackFor) return;
     
-    onInterviewFeedback(feedbackFor.id, feedbackForm);
+    onInterviewFeedback(feedbackFor._id || feedbackFor.id, feedbackForm);
     setFeedbackFor(null);
   };
 
+  // Helper to extract jobId from populated object
+  const getJobId = (jobId) => {
+    if (!jobId) return null;
+    return typeof jobId === 'object' ? jobId._id : jobId;
+  };
+
   const statusCounts = {
-    pending: applications.filter(a => (a.status === 'interview' || a.status === 'phone-interview') && !a.interviewFeedback && (!selectedJob || selectedJob === 'all' || a.jobId === selectedJob)).length,
-    completed: applications.filter(a => (a.status === 'interview' || a.status === 'phone-interview') && a.interviewFeedback && (!selectedJob || selectedJob === 'all' || a.jobId === selectedJob)).length
+    pending: applications.filter(a => (a.status === 'interview' || a.status === 'phone-interview') && !a.interviewFeedback && (!selectedJob || selectedJob === 'all' || getJobId(a.jobId) === selectedJob)).length,
+    completed: applications.filter(a => (a.status === 'interview' || a.status === 'phone-interview') && a.interviewFeedback && (!selectedJob || selectedJob === 'all' || getJobId(a.jobId) === selectedJob)).length
   };
 
   const getJobTitle = (jobId) => {
-    const job = jobs.find(j => j.id === jobId);
+    // Handle populated jobId object
+    if (typeof jobId === 'object' && jobId.title) {
+      return jobId.title;
+    }
+    const actualJobId = getJobId(jobId);
+    const job = jobs.find(j => (j._id || j.id) === actualJobId);
     return job ? job.title : 'Unknown Position';
   };
 
@@ -150,7 +162,7 @@ function InterviewManagement({
         >
           <option value="all">All Positions</option>
           {jobs.map(job => (
-            <option key={job.id} value={job.id}>
+            <option key={job._id || job.id} value={job._id || job.id}>
               {job.title} ({job.department})
             </option>
           ))}
@@ -293,7 +305,7 @@ function InterviewManagement({
                 </tr>
               ) : (
                 filteredCandidates.map(candidate => (
-                  <tr key={candidate.id} className="hover:bg-gray-50">
+                  <tr key={candidate._id || candidate.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{candidate.applicant?.name || candidate.name}</div>
                       <div className="text-sm text-gray-500">{candidate.applicant?.email || candidate.email}</div>

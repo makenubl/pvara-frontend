@@ -41,8 +41,9 @@ function OfferManagement({
       
       if (!isRelevant) return false;
 
-      // Filter by job
-      if (selectedJob !== 'all' && app.jobId !== selectedJob) return false;
+      // Filter by job (handle populated jobId)
+      const appJobId = typeof app.jobId === 'object' ? app.jobId._id : app.jobId;
+      if (selectedJob !== 'all' && appJobId !== selectedJob) return false;
 
       // Filter by offer status
       if (filterStatus === 'eligible') return hasGoodFeedback && !hasOffer;
@@ -57,7 +58,8 @@ function OfferManagement({
   }, [applications, selectedJob, filterStatus]);
 
   const handleOpenOfferForm = (candidate) => {
-    const job = jobs.find(j => j.id === candidate.jobId);
+    const jobId = typeof candidate.jobId === 'object' ? candidate.jobId._id : candidate.jobId;
+    const job = jobs.find(j => (j._id || j.id) === jobId);
     setOfferFor(candidate);
     setOfferForm({
       salary: job?.salary ? `PKR ${job.salary.min.toLocaleString()} - ${job.salary.max.toLocaleString()}` : '',
@@ -70,7 +72,7 @@ function OfferManagement({
   const handleSubmitOffer = () => {
     if (!offerFor || !offerForm.salary) return;
     
-    onExtendOffer(offerFor.id, {
+    onExtendOffer(offerFor._id || offerFor.id, {
       salary: offerForm.salary,
       startDate: offerForm.startDate,
       benefits: offerForm.benefits,
@@ -80,21 +82,32 @@ function OfferManagement({
     setOfferFor(null);
   };
 
+  // Helper to extract jobId from populated object
+  const getJobId = (jobId) => {
+    if (!jobId) return null;
+    return typeof jobId === 'object' ? jobId._id : jobId;
+  };
+
   const statusCounts = {
     eligible: applications.filter(a => {
       const hasGoodFeedback = a.interviewFeedback && 
                               (a.interviewFeedback.recommendation === 'hire' || 
                                parseFloat(a.interviewFeedback.overallScore || 0) >= 7.0);
       const hasOffer = a.status === 'offer' || a.offer;
-      return hasGoodFeedback && !hasOffer && (!selectedJob || selectedJob === 'all' || a.jobId === selectedJob);
+      return hasGoodFeedback && !hasOffer && (!selectedJob || selectedJob === 'all' || getJobId(a.jobId) === selectedJob);
     }).length,
-    pending: applications.filter(a => a.offer?.status === 'pending' && (!selectedJob || selectedJob === 'all' || a.jobId === selectedJob)).length,
-    accepted: applications.filter(a => a.offer?.status === 'accepted' && (!selectedJob || selectedJob === 'all' || a.jobId === selectedJob)).length,
-    rejected: applications.filter(a => a.offer?.status === 'rejected' && (!selectedJob || selectedJob === 'all' || a.jobId === selectedJob)).length
+    pending: applications.filter(a => a.offer?.status === 'pending' && (!selectedJob || selectedJob === 'all' || getJobId(a.jobId) === selectedJob)).length,
+    accepted: applications.filter(a => a.offer?.status === 'accepted' && (!selectedJob || selectedJob === 'all' || getJobId(a.jobId) === selectedJob)).length,
+    rejected: applications.filter(a => a.offer?.status === 'rejected' && (!selectedJob || selectedJob === 'all' || getJobId(a.jobId) === selectedJob)).length
   };
 
   const getJobTitle = (jobId) => {
-    const job = jobs.find(j => j.id === jobId);
+    // Handle populated jobId object
+    if (typeof jobId === 'object' && jobId.title) {
+      return jobId.title;
+    }
+    const actualJobId = typeof jobId === 'object' ? jobId._id : jobId;
+    const job = jobs.find(j => (j._id || j.id) === actualJobId);
     return job ? job.title : 'Unknown Position';
   };
 
@@ -172,7 +185,7 @@ function OfferManagement({
         >
           <option value="all">All Positions</option>
           {jobs.map(job => (
-            <option key={job.id} value={job.id}>
+            <option key={job._id || job.id} value={job._id || job.id}>
               {job.title} ({job.department})
             </option>
           ))}
@@ -367,7 +380,7 @@ function OfferManagement({
                 </tr>
               ) : (
                 filteredCandidates.map(candidate => (
-                  <tr key={candidate.id} className="hover:bg-gray-50">
+                  <tr key={candidate._id || candidate.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{candidate.applicant?.name || candidate.name}</div>
                       <div className="text-sm text-gray-500">{candidate.applicant?.email || candidate.email}</div>
@@ -464,7 +477,7 @@ function OfferManagement({
                         {candidate.offer?.status === 'pending' && (
                           <>
                             <button
-                              onClick={() => onAcceptOffer(candidate.id)}
+                              onClick={() => onAcceptOffer(candidate._id || candidate.id)}
                               className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center gap-1"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -473,7 +486,7 @@ function OfferManagement({
                               Mark Accepted
                             </button>
                             <button
-                              onClick={() => onRejectOffer(candidate.id)}
+                              onClick={() => onRejectOffer(candidate._id || candidate.id)}
                               className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 flex items-center gap-1"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -482,7 +495,7 @@ function OfferManagement({
                               Mark Rejected
                             </button>
                             <button
-                              onClick={() => onWithdrawOffer(candidate.id)}
+                              onClick={() => onWithdrawOffer(candidate._id || candidate.id)}
                               className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
                             >
                               Withdraw

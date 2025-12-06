@@ -15,7 +15,8 @@ function TestManagement({
   applications = [], 
   jobs = [],
   onUpdateApplication,
-  onMoveToInterview
+  onMoveToInterview,
+  onRefreshApplications
 }) {
   const { addToast } = useToast();
   const [selectedCandidates, setSelectedCandidates] = useState([]);
@@ -25,6 +26,8 @@ function TestManagement({
   const [sendingTests, setSendingTests] = useState(false);
   const [availableTests, setAvailableTests] = useState([]);
   const [testDeadlineDays, setTestDeadlineDays] = useState(3); // Default 3 days
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState(null);
 
   // Fetch available tests on mount
   useEffect(() => {
@@ -43,24 +46,116 @@ function TestManagement({
     }
   }
 
+  // Helper to check if test deadline has expired
+  const isTestExpired = (expiresAt) => {
+    if (!expiresAt) return false;
+    return new Date(expiresAt) < new Date();
+  };
+
+  // Refresh test statuses - checks with backend for any completed tests
+  const handleRefreshStatuses = async () => {
+    setRefreshing(true);
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const pendingCandidates = applications.filter(app => 
+        app.testing?.status === 'invited' || app.testing?.status === 'pending' || app.testing?.status === 'in-progress'
+      );
+      
+      let updatedCount = 0;
+      for (const candidate of pendingCandidates) {
+        try {
+          const response = await axios.get(`${apiUrl}/api/testing/results/${candidate._id || candidate.id}`);
+          if (response.data.success && response.data.results) {
+            updatedCount++;
+          }
+        } catch (err) {
+          // Test not completed yet, which is expected
+        }
+      }
+      
+      // Refresh all applications from backend to get latest state
+      if (onRefreshApplications) {
+        await onRefreshApplications();
+      }
+      
+      setLastRefreshed(new Date());
+      if (updatedCount > 0) {
+        addToast(`✅ ${updatedCount} test result(s) updated!`, { type: 'success' });
+      } else {
+        addToast(`ℹ️ No new test completions found`, { type: 'info' });
+      }
+    } catch (error) {
+      console.error('Failed to refresh test statuses:', error);
+      addToast('❌ Failed to refresh test statuses', { type: 'error' });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Helper to extract jobId - handles both populated object and string
+  const getJobId = (app) => {
+    if (!app.jobId) return null;
+    return typeof app.jobId === 'object' ? app.jobId._id : app.jobId;
+  };
+
+  // Helper to determine if test can be resent (only if expired or failed)
+  const canResendTest = (candidate) => {
+    if (!candidate.testing) return false;
+    // Can resend if expired
+    if (candidate.testing.status === 'invited' && isTestExpired(candidate.testing?.expiresAt)) {
+      return true;
+    }
+    // Can resend if test completed but candidate needs retest (HR decision)
+    if (candidate.testing.status === 'completed' && candidate.testing.needsRetest) {
+      return true;
+    }
+    return false;
+  };
+
+  // Helper to check if test is currently active (sent but not completed/expired)
+  const hasActiveTest = (candidate) => {
+    if (!candidate.testing) return false;
+    if (candidate.testing.status === 'invited' && !isTestExpired(candidate.testing?.expiresAt)) {
+      return true;
+    }
+    if (candidate.testing.status === 'pending' || candidate.testing.status === 'in-progress') {
+      return true;
+    }
+    return false;
+  };
+
   // Filter candidates based on test status and job
   const filteredCandidates = useMemo(() => {
     let filtered = applications.filter(app => {
-      // Show candidates in screening, test-invited, or with testing status
+      // Exclude candidates who have moved beyond test phase
+      const excludedStatuses = ['interview', 'phone-interview', 'offer', 'hired', 'rejected', 'withdrawn'];
+      if (excludedStatuses.includes(app.status)) return false;
+      
+      // Show candidates in screening, test-invited, test-in-progress, test-completed
       const isRelevant = 
         app.status === 'screening' || 
         app.status === 'test-invited' ||
-        (app.testing && ['ready', 'invited', 'pending', 'completed'].includes(app.testing.status));
+        app.status === 'test-in-progress' ||
+        app.status === 'test-completed';
       
       if (!isRelevant) return false;
 
-      // Filter by job
-      if (selectedJob !== 'all' && app.jobId !== selectedJob) return false;
+      // Filter by job (handle populated jobId object)
+      const appJobId = getJobId(app);
+      if (selectedJob !== 'all' && appJobId !== selectedJob) return false;
 
       // Filter by test status
-      if (filterStatus === 'ready') return (app.status === 'screening' || app.status === 'test-invited') && !app.testing;
-      if (filterStatus === 'pending') return app.testing?.status === 'invited' || app.testing?.status === 'pending';
-      if (filterStatus === 'completed') return app.testing?.status === 'completed';
+      if (filterStatus === 'ready') {
+        // Show candidates ready for test: screening OR test-invited without active testing status
+        return (app.status === 'screening' || app.status === 'test-invited') && !app.testing?.status;
+      }
+      if (filterStatus === 'pending') {
+        // Only show if they have a testing object with invited/pending/in-progress status
+        return app.testing?.status === 'invited' || app.testing?.status === 'pending' || app.testing?.status === 'in-progress';
+      }
+      if (filterStatus === 'completed') {
+        return app.testing?.status === 'completed';
+      }
 
       return true;
     });
@@ -68,7 +163,18 @@ function TestManagement({
     return filtered;
   }, [applications, selectedJob, filterStatus]);
 
+  // Candidates that can be selected for sending tests (no active test)
+  const selectableCandidates = useMemo(() => {
+    return filteredCandidates.filter(c => !c.testing?.status || canResendTest(c));
+  }, [filteredCandidates]);
+
   const handleSelectCandidate = (candidateId) => {
+    const candidate = applications.find(a => (a._id || a.id) === candidateId);
+    // Prevent selecting candidates with active tests
+    if (candidate && hasActiveTest(candidate)) {
+      addToast(`⚠️ Cannot select - candidate has an active test invitation`, { type: 'warning' });
+      return;
+    }
     setSelectedCandidates(prev => 
       prev.includes(candidateId) 
         ? prev.filter(id => id !== candidateId)
@@ -77,11 +183,10 @@ function TestManagement({
   };
 
   const handleSelectAll = () => {
-    const selectableCandidates = filteredCandidates.filter(c => !c.testing);
     if (selectedCandidates.length === selectableCandidates.length) {
       setSelectedCandidates([]);
     } else {
-      setSelectedCandidates(selectableCandidates.map(c => c.id));
+      setSelectedCandidates(selectableCandidates.map(c => c._id || c.id));
     }
   };
 
@@ -95,10 +200,10 @@ function TestManagement({
     try {
       // Send tests for each selected candidate
       for (const candidateId of selectedCandidates) {
-        const candidate = applications.find(a => a.id === candidateId);
+        const candidate = applications.find(a => (a._id || a.id) === candidateId);
         if (!candidate) continue;
 
-        const job = jobs.find(j => (j._id || j.id) === (candidate.jobId?._id || candidate.jobId));
+        const job = jobs.find(j => (j._id || j.id) === getJobId(candidate));
         if (!job || !job.requiredTests || job.requiredTests.length === 0) {
           console.warn(`No required tests for job ${job?.title || candidate.jobId}`);
           failCount++;
@@ -172,6 +277,10 @@ function TestManagement({
       // Show summary
       if (successCount > 0) {
         addToast(`🎯 Successfully sent ${successCount} test invitation${successCount > 1 ? 's' : ''} with email notifications`, { type: 'success', duration: 6000 });
+        // Refresh applications from backend to get updated testing status
+        if (onRefreshApplications) {
+          await onRefreshApplications();
+        }
       }
       if (failCount > 0) {
         addToast(`⚠️ Failed to send ${failCount} test${failCount > 1 ? 's' : ''}`, { type: 'error', duration: 5000 });
@@ -189,18 +298,25 @@ function TestManagement({
       const response = await axios.post(`${apiUrl}/api/testing/simulate-completion/${candidateId}`);
       
       if (response.data.success) {
-        // Update application with results
-        onUpdateApplication(candidateId, {
-          testing: {
-            ...applications.find(a => a.id === candidateId)?.testing,
-            status: 'completed',
-            completedAt: new Date().toISOString(),
-            results: response.data.results
-          }
-        });
+        // Refresh from backend to get the updated testing data
+        if (onRefreshApplications) {
+          await onRefreshApplications();
+        } else {
+          // Fallback to local update
+          onUpdateApplication(candidateId, {
+            testing: {
+              ...applications.find(a => (a._id || a.id) === candidateId)?.testing,
+              status: 'completed',
+              completedAt: new Date().toISOString(),
+              results: response.data.results
+            }
+          });
+        }
+        addToast('✅ Test completion simulated - results available', { type: 'success' });
       }
     } catch (error) {
       console.error('Failed to simulate test completion:', error);
+      addToast('❌ Failed to simulate test completion', { type: 'error' });
     }
   };
 
@@ -209,41 +325,95 @@ function TestManagement({
     setViewingResults(null);
   };
 
+  // Handle reject after test
+  const handleRejectCandidate = async (candidateId) => {
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      await axios.put(`${apiUrl}/api/applications/${candidateId}/status`, { status: 'rejected' });
+      onUpdateApplication(candidateId, { status: 'rejected' });
+      addToast('❌ Candidate rejected', { type: 'info' });
+      setViewingResults(null);
+    } catch (error) {
+      addToast('Failed to reject candidate', { type: 'error' });
+    }
+  };
+
+  // Handle request retest
+  const handleRequestRetest = (candidateId) => {
+    const candidate = applications.find(a => (a._id || a.id) === candidateId);
+    if (candidate) {
+      // Mark for retest and reset testing status
+      onUpdateApplication(candidateId, { 
+        testing: {
+          ...candidate.testing,
+          needsRetest: true,
+          retestReason: 'HR requested retest',
+          previousResults: candidate.testing?.results
+        }
+      });
+      addToast('🔄 Candidate marked for retest - select and send new test', { type: 'success' });
+      setViewingResults(null);
+    }
+  };
+
+  // Statuses that indicate candidate has moved beyond test phase
+  const excludedStatuses = ['interview', 'phone-interview', 'offer', 'hired', 'rejected', 'withdrawn'];
+  
   const statusCounts = {
     ready: applications.filter(a => 
+      !excludedStatuses.includes(a.status) &&
       (a.status === 'screening' || a.status === 'test-invited') && 
-      !a.testing &&
-      (selectedJob === 'all' || a.jobId === selectedJob)
+      !a.testing?.status &&
+      (selectedJob === 'all' || getJobId(a) === selectedJob)
     ).length,
     pending: applications.filter(a => 
-      (a.testing?.status === 'invited' || a.testing?.status === 'pending') &&
-      (selectedJob === 'all' || a.jobId === selectedJob)
+      !excludedStatuses.includes(a.status) &&
+      (a.testing?.status === 'invited' || a.testing?.status === 'pending' || a.testing?.status === 'in-progress') &&
+      (selectedJob === 'all' || getJobId(a) === selectedJob)
     ).length,
     completed: applications.filter(a => 
+      !excludedStatuses.includes(a.status) &&
       a.testing?.status === 'completed' &&
-      (selectedJob === 'all' || a.jobId === selectedJob)
+      (selectedJob === 'all' || getJobId(a) === selectedJob)
     ).length
   };
 
   const getJobTitle = (jobId) => {
-    const job = jobs.find(j => j.id === jobId);
-    return job ? job.title : 'Unknown Position';
+    // Handle populated jobId object
+    const actualJobId = typeof jobId === 'object' ? jobId._id : jobId;
+    const job = jobs.find(j => (j._id || j.id) === actualJobId);
+    return job ? job.title : (typeof jobId === 'object' && jobId.title) ? jobId.title : 'Unknown Position';
   };
 
   const getTestDetails = (testId) => {
     return availableTests.find(t => t.id === testId);
   };
 
-  const isTestExpired = (expiresAt) => {
-    if (!expiresAt) return false;
-    return new Date(expiresAt) < new Date();
-  };
-
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Test Management & Tracking</h1>
-        <p className="text-gray-600">Send tests, track progress, and review results</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Test Management & Tracking</h1>
+            <p className="text-gray-600">Send tests, track progress, and review results</p>
+          </div>
+          {/* Refresh Button */}
+          <button
+            onClick={handleRefreshStatuses}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+          >
+            <svg className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {refreshing ? 'Checking...' : 'Check for Completions'}
+          </button>
+        </div>
+        {lastRefreshed && (
+          <p className="text-xs text-gray-500 mt-1">
+            Last checked: {lastRefreshed.toLocaleTimeString()}
+          </p>
+        )}
         
         {/* Sequential Workflow Indicator */}
         <div className="mt-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4">
@@ -313,7 +483,7 @@ function TestManagement({
         >
           <option value="all">All Positions</option>
           {jobs.map(job => (
-            <option key={job.id} value={job.id}>
+            <option key={job._id || job.id} value={job._id || job.id}>
               {job.title} ({job.department})
               {job.requiredTests && job.requiredTests.length > 0 && ` - ${job.requiredTests.length} tests`}
             </option>
@@ -456,13 +626,18 @@ function TestManagement({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900">
               Candidates ({filteredCandidates.length})
+              {selectableCandidates.length > 0 && (
+                <span className="ml-2 text-sm text-gray-500 font-normal">
+                  ({selectableCandidates.length} can receive tests)
+                </span>
+              )}
             </h3>
-            {filteredCandidates.some(c => !c.testing) && (
+            {selectableCandidates.length > 0 && (
               <button
                 onClick={handleSelectAll}
                 className="text-sm text-purple-600 hover:text-purple-700 font-medium"
               >
-                {selectedCandidates.length === filteredCandidates.filter(c => !c.testing).length ? 'Deselect All' : 'Select All'}
+                {selectedCandidates.length === selectableCandidates.length ? 'Deselect All' : 'Select All Ready'}
               </button>
             )}
           </div>
@@ -479,21 +654,33 @@ function TestManagement({
             </div>
           ) : (
             filteredCandidates.map((candidate) => {
-              const job = jobs.find(j => j.id === candidate.jobId);
+              const job = jobs.find(j => (j._id || j.id) === getJobId(candidate));
               const requiredTests = job?.requiredTests || [];
-              const isSelected = selectedCandidates.includes(candidate.id);
+              const isSelected = selectedCandidates.includes(candidate._id || candidate.id);
+              const canSelect = !candidate.testing || canResendTest(candidate);
+              const hasActive = hasActiveTest(candidate);
 
               return (
-                <div key={candidate.id} className="p-4 hover:bg-gray-50 transition">
+                <div key={candidate._id || candidate.id} className={`p-4 hover:bg-gray-50 transition ${
+                  hasActive ? 'bg-yellow-50' : ''
+                }`}>
                   <div className="flex items-start gap-4">
-                    {/* Checkbox for selection (for candidates without testing status) */}
-                    {!candidate.testing && (
+                    {/* Checkbox for selection (for candidates that can receive tests) */}
+                    {canSelect && (
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => handleSelectCandidate(candidate.id)}
+                        onChange={() => handleSelectCandidate(candidate._id || candidate.id)}
                         className="mt-1 w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
                       />
+                    )}
+                    {/* Placeholder for alignment when checkbox not shown */}
+                    {!canSelect && (
+                      <div className="mt-1 w-5 h-5 flex items-center justify-center text-gray-400" title="Test already sent">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
                     )}
 
                     {/* Candidate Info */}
@@ -508,15 +695,21 @@ function TestManagement({
                         </div>
 
                         {/* Status Badge */}
-                        <div>
+                        <div className="flex flex-col items-end gap-1">
                           {!candidate.testing && (
-                            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                              Ready
+                            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                              Ready to Send
                             </span>
                           )}
                           {candidate.testing?.status === 'invited' && !isTestExpired(candidate.testing?.expiresAt) && (
-                            <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium">
-                              Test Sent
+                            <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                              Test Sent - Awaiting
                             </span>
                           )}
                           {candidate.testing?.status === 'invited' && isTestExpired(candidate.testing?.expiresAt) && (
@@ -524,17 +717,44 @@ function TestManagement({
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              Expired
+                              Expired - Resend
                             </span>
                           )}
-                          {candidate.testing?.status === 'pending' && (
-                            <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
-                              In Progress
+                          {(candidate.testing?.status === 'pending' || candidate.testing?.status === 'in-progress') && (
+                            <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium flex items-center gap-1">
+                              <svg className="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              Test In Progress
                             </span>
                           )}
                           {candidate.testing?.status === 'completed' && (
-                            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-                              Completed
+                            <>
+                              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium flex items-center gap-1">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Test Completed
+                              </span>
+                              {/* Show score and recommendation if available */}
+                              {candidate.testing?.results && (
+                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                  candidate.testing.results.score >= 70 ? 'bg-green-200 text-green-800' :
+                                  candidate.testing.results.score >= 50 ? 'bg-yellow-200 text-yellow-800' :
+                                  'bg-red-200 text-red-800'
+                                }`}>
+                                  Score: {candidate.testing.results.score}%
+                                </span>
+                              )}
+                            </>
+                          )}
+                          {candidate.testing?.needsRetest && (
+                            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Retest Requested
                             </span>
                           )}
                         </div>
@@ -660,22 +880,28 @@ function TestManagement({
                       )}
 
                       {/* Actions */}
-                      <div className="mt-3 flex gap-2">
+                      <div className="mt-3 flex gap-2 flex-wrap">
+                        {/* For candidates with active tests - show demo completion button */}
                         {candidate.testing?.status === 'invited' && !isTestExpired(candidate.testing?.expiresAt) && (
                           <button
-                            onClick={() => handleSimulateCompletion(candidate.id)}
-                            className="px-3 py-1.5 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700 transition"
+                            onClick={() => handleSimulateCompletion(candidate._id || candidate.id)}
+                            className="px-3 py-1.5 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700 transition flex items-center gap-1"
                           >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
                             Simulate Completion (Demo)
                           </button>
                         )}
 
+                        {/* For expired tests - allow resend */}
                         {candidate.testing?.status === 'invited' && isTestExpired(candidate.testing?.expiresAt) && (
                           <button
                             onClick={() => {
                               // Reset testing status to allow resending
-                              onUpdateApplication(candidate.id, { testing: null });
-                              setSelectedCandidates([candidate.id]);
+                              onUpdateApplication(candidate._id || candidate.id, { testing: null });
+                              setSelectedCandidates([candidate._id || candidate.id]);
+                              addToast('📝 Candidate ready for retest - click Send Tests when ready', { type: 'info' });
                             }}
                             className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition flex items-center gap-1"
                           >
@@ -686,24 +912,70 @@ function TestManagement({
                           </button>
                         )}
 
+                        {/* For completed tests - decision actions */}
                         {candidate.testing?.status === 'completed' && (
                           <>
                             <button
                               onClick={() => setViewingResults(candidate)}
-                              className="px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 transition"
-                            >
-                              View Full Results
-                            </button>
-                            <button
-                              onClick={() => handleMoveToInterview(candidate.id)}
-                              className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition flex items-center gap-1"
+                              className="px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 transition flex items-center gap-1"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                               </svg>
-                              Move to Interview
+                              View Results
+                            </button>
+                            {/* Show different actions based on score/recommendation */}
+                            {candidate.testing.results?.score >= 50 ? (
+                              <button
+                                onClick={() => handleMoveToInterview(candidate._id || candidate.id)}
+                                className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition flex items-center gap-1"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                                Move to Interview
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleMoveToInterview(candidate._id || candidate.id)}
+                                className="px-3 py-1.5 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700 transition flex items-center gap-1"
+                                title="Score below 50% - consider carefully"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                Move to Interview (Low Score)
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleRequestRetest(candidate._id || candidate.id)}
+                              className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition flex items-center gap-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Request Retest
+                            </button>
+                            <button
+                              onClick={() => handleRejectCandidate(candidate._id || candidate.id)}
+                              className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition flex items-center gap-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              Reject
                             </button>
                           </>
+                        )}
+
+                        {/* For retest candidates - show they're ready to select */}
+                        {candidate.testing?.needsRetest && (
+                          <span className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded text-sm flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Select to send new test
+                          </span>
                         )}
                       </div>
                     </div>
@@ -807,12 +1079,51 @@ function TestManagement({
             </div>
 
             <div className="p-6 border-t border-gray-200 bg-gray-50">
-              <div className="flex gap-3">
+              <div className="mb-3">
+                <p className="text-sm text-gray-600 mb-2">
+                  <strong>Decision:</strong> Based on the test results, choose how to proceed with this candidate.
+                </p>
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                {viewingResults.testing?.results?.score >= 50 ? (
+                  <button
+                    onClick={() => handleMoveToInterview(viewingResults._id || viewingResults.id)}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    Move to Interview
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleMoveToInterview(viewingResults._id || viewingResults.id)}
+                    className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition font-medium flex items-center justify-center gap-2"
+                    title="Score below 50% - proceed with caution"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Move to Interview (Low Score)
+                  </button>
+                )}
                 <button
-                  onClick={() => handleMoveToInterview(viewingResults.id)}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
+                  onClick={() => handleRequestRetest(viewingResults._id || viewingResults.id)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2"
                 >
-                  Move to Interview Stage
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Request Retest
+                </button>
+                <button
+                  onClick={() => handleRejectCandidate(viewingResults._id || viewingResults.id)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Reject
                 </button>
                 <button
                   onClick={() => setViewingResults(null)}

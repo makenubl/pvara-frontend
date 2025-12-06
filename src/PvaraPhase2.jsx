@@ -584,6 +584,10 @@ function PvaraPhase2() {
     fetchData();
   }, [user, addToast]);
   
+  // State declarations (must be before useEffect that uses them)
+  const [view, setView] = useState("jobs");
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  
   // Show login modal for protected views if not authenticated
   useEffect(() => {
     const protectedViews = ['admin', 'hr', 'test-management', 'interview-management', 'offer-management', 'audit', 'settings', 'system-dashboard', 'dashboard'];
@@ -669,8 +673,7 @@ function PvaraPhase2() {
     addToast(`Generated ${newApps.length} test applications`, "success");
   }, [state.applications.length, state.jobs, addToast]);
 
-  // State declarations (must be before useEffect that uses them)
-  const [view, setView] = useState("jobs");
+  // Additional state declarations
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [editingJobId, setEditingJobId] = useState(null);
   const [jobForm, setJobForm] = useState(emptyJobForm);
@@ -691,7 +694,6 @@ function PvaraPhase2() {
   const [hrSearch, setHrSearch] = useState("");
   const [jobSearch, setJobSearch] = useState("");
   const [selectedApps, setSelectedApps] = useState([]);
-  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Memoized handlers to prevent input focus loss
   // eslint-disable-next-line no-unused-vars
@@ -801,14 +803,14 @@ function PvaraPhase2() {
     }
     
     let applicantData = formData || appForm;
-    
+    // Always use job._id (ObjectId) for jobId
+    const jobIdObj = applicantData.jobId || "";
     // Transform ApplicationForm data structure if needed
     if (applicantData.firstName || applicantData.education) {
       const primaryEducation = applicantData.education?.[0] || {};
       const primaryEmployment = applicantData.employment?.[0] || {};
-      
       applicantData = {
-        jobId: applicantData.jobId,
+        jobId: jobIdObj,
         name: `${applicantData.firstName || ''} ${applicantData.lastName || ''}`.trim() || applicantData.name,
         email: applicantData.email,
         cnic: applicantData.cnic || 'N/A',
@@ -825,9 +827,11 @@ function PvaraPhase2() {
         languages: applicantData.languages,
         coverLetter: applicantData.coverLetter,
       };
+    } else {
+      applicantData.jobId = jobIdObj;
     }
     
-    const job = (state.jobs || []).find((j) => j._id === applicantData.jobId || j.id === applicantData.jobId);
+    const job = (state.jobs || []).find((j) => j._id === applicantData.jobId);
     if (!job) {
       addToast("Select job", { type: "error" });
       return;
@@ -1705,7 +1709,7 @@ function PvaraPhase2() {
     }, []);
 
     if (selectedJobId) {
-      const job = openJobs.find((j) => j.id === selectedJobId);
+      const job = openJobs.find((j) => (j._id || j.id) === selectedJobId);
       if (!job) {
         setSelectedJobId(null);
         return null;
@@ -1777,7 +1781,7 @@ function PvaraPhase2() {
                 <button
                   onClick={() => {
                     setView('apply');
-                    setAppForm(prev => ({ ...prev, jobId: job.id }));
+                    setAppForm(prev => ({ ...prev, jobId: job._id || job.id }));
                   }}
                   className="w-full md:w-auto px-8 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-lg transition shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                 >
@@ -1837,9 +1841,9 @@ function PvaraPhase2() {
           <div className="grid grid-cols-1 gap-6">
             {paginatedJobs.map(job => (
               <div
-                key={job.id}
+                key={job._id || job.id}
                 className="glass-card rounded-xl shadow-lg hover:shadow-2xl transition-all overflow-hidden border-2 border-white/30 hover:border-green-400 cursor-pointer"
-                onClick={() => setSelectedJobId(job.id)}
+                onClick={() => setSelectedJobId(job._id || job.id)}
               >
                 <div className="p-6">
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
@@ -1871,7 +1875,7 @@ function PvaraPhase2() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedJobId(job.id);
+                          setSelectedJobId(job._id || job.id);
                         }}
                         className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition whitespace-nowrap"
                       >
@@ -1881,7 +1885,7 @@ function PvaraPhase2() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setView('apply');
-                          setAppForm(prev => ({ ...prev, jobId: job.id }));
+                          setAppForm(prev => ({ ...prev, jobId: job._id || job.id }));
                         }}
                         className="px-6 py-2 border-2 border-green-600 text-green-600 rounded-lg hover:bg-green-50 font-medium transition whitespace-nowrap"
                       >
@@ -1948,7 +1952,7 @@ function PvaraPhase2() {
 
   // Two-Panel HR Review with Job Selection
   function HRReviewPanel({ jobs, applications, onStatusChange, onAIEvaluate, onBulkAction, onAddNote, onExport }) {
-    const [selectedJobId, setSelectedJobId] = React.useState(jobs[0]?.id || null);
+    const [selectedJobId, setSelectedJobId] = React.useState(jobs[0]?._id || jobs[0]?.id || null);
     
     const handleMoveToTest = (candidateIds) => {
       candidateIds.forEach(id => {
@@ -1956,14 +1960,22 @@ function PvaraPhase2() {
       });
     };
     
-    const selectedJob = jobs.find(j => j.id === selectedJobId);
-    const filteredApplications = applications.filter(app => app.jobId === selectedJobId);
+    // Helper to extract jobId - handles both populated object and string
+    const getJobId = (app) => {
+      if (!app.jobId) return null;
+      // If jobId is populated object, get _id; otherwise use as-is
+      return typeof app.jobId === 'object' ? app.jobId._id : app.jobId;
+    };
+    
+    const selectedJob = jobs.find(j => j._id === selectedJobId);
+    const filteredApplications = applications.filter(app => getJobId(app) === selectedJobId);
     
     // Calculate stats per job
     const jobStats = jobs.map(job => {
-      const jobApps = applications.filter(app => app.jobId === job.id);
+      const jobId = job._id;
+      const jobApps = applications.filter(app => getJobId(app) === jobId);
       return {
-        jobId: job.id,
+        jobId,
         total: jobApps.length,
         submitted: jobApps.filter(a => a.status === 'submitted').length,
         screening: jobApps.filter(a => a.status === 'screening').length,
@@ -1980,13 +1992,14 @@ function PvaraPhase2() {
           <h2 className="text-xl font-bold mb-4 text-gray-800">Open Positions</h2>
           <div className="space-y-2">
             {jobs.map(job => {
-              const stats = jobStats.find(s => s.jobId === job.id);
+              const jobId = job._id || job.id;
+              const stats = jobStats.find(s => s.jobId === jobId);
               return (
                 <button
-                  key={job.id}
-                  onClick={() => setSelectedJobId(job.id)}
+                  key={jobId}
+                  onClick={() => setSelectedJobId(jobId)}
                   className={`w-full text-left p-3 rounded-lg border-2 transition ${
-                    selectedJobId === job.id
+                    selectedJobId === jobId
                       ? 'border-green-700 bg-green-50'
                       : 'border-gray-200 hover:border-green-300 hover:bg-gray-50'
                   }`}
@@ -2100,7 +2113,7 @@ function PvaraPhase2() {
               onGenerateTestData={generateTestData}
             />
           )}
-          {view === "apply" && <ApplicationForm onSubmit={submitApplication} jobs={state.jobs} />}
+          {view === "apply" && <ApplicationForm onSubmit={submitApplication} jobs={state.jobs} selectedJobId={appForm.jobId} />}
           {(view === "candidate-login" || view === "my-apps") && !candidateSession && (
             <CandidateLogin 
               onLogin={handleCandidateLogin} 
@@ -2134,21 +2147,37 @@ function PvaraPhase2() {
                 setState(prev => ({
                   ...prev,
                   applications: prev.applications.map(app =>
-                    app.id === appId ? { ...app, ...updates } : app
+                    (app._id || app.id) === appId ? { ...app, ...updates } : app
                   )
                 }));
               }}
-              onMoveToInterview={(candidateId) => {
-                setState(s => ({
-                  ...s,
-                  applications: s.applications.map(a => 
-                    a.id === candidateId 
-                      ? { ...a, status: 'interview' }
-                      : a
-                  )
-                }));
-                audit('move-to-interview', { candidateId, from: 'test-completed' });
-                addToast('Candidate moved to interview stage', { type: 'success' });
+              onRefreshApplications={async () => {
+                try {
+                  const appsResponse = await applicationsAPI.getAll();
+                  setState(prev => ({
+                    ...prev,
+                    applications: appsResponse.applications || []
+                  }));
+                } catch (err) {
+                  console.error('Failed to refresh applications:', err);
+                }
+              }}
+              onMoveToInterview={async (candidateId) => {
+                try {
+                  await applicationsAPI.updateStatus(candidateId, 'interview');
+                  setState(s => ({
+                    ...s,
+                    applications: s.applications.map(a => 
+                      (a._id || a.id) === candidateId 
+                        ? { ...a, status: 'interview' }
+                        : a
+                    )
+                  }));
+                  audit('move-to-interview', { candidateId, from: 'test-completed' });
+                  addToast('Candidate moved to interview stage', { type: 'success' });
+                } catch (err) {
+                  addToast('Failed to move candidate to interview', { type: 'error' });
+                }
               }}
             />
           )}
@@ -2157,18 +2186,50 @@ function PvaraPhase2() {
             <InterviewManagement 
               applications={state.applications}
               jobs={state.jobs}
-              onInterviewFeedback={(candidateId, feedback) => {
+              onInterviewFeedback={async (candidateId, feedback) => {
                 const overallScore = ((feedback.technicalRating + feedback.communicationRating + feedback.cultureFitRating + feedback.problemSolvingRating) / 4).toFixed(1);
-                setState(s => ({
-                  ...s,
-                  applications: s.applications.map(a => 
-                    a.id === candidateId 
-                      ? { ...a, interviewFeedback: { ...feedback, overallScore, timestamp: new Date().toISOString() } }
-                      : a
-                  )
-                }));
-                audit('interview-feedback', { candidateId, overallScore, recommendation: feedback.recommendation });
-                addToast(`Interview feedback recorded - Score: ${overallScore}/10`, { type: 'success' });
+                
+                // Determine new status based on recommendation
+                let newStatus = 'interview';
+                if (feedback.recommendation === 'hire') {
+                  newStatus = 'offer';
+                } else if (feedback.recommendation === 'reject') {
+                  newStatus = 'rejected';
+                }
+                // 'maybe' keeps them in interview for further discussion
+                
+                try {
+                  // Update status in backend if changing
+                  if (newStatus !== 'interview') {
+                    await applicationsAPI.updateStatus(candidateId, newStatus);
+                  }
+                  
+                  setState(s => ({
+                    ...s,
+                    applications: s.applications.map(a => 
+                      (a._id || a.id) === candidateId 
+                        ? { 
+                            ...a, 
+                            status: newStatus,
+                            interviewFeedback: { ...feedback, overallScore, timestamp: new Date().toISOString() } 
+                          }
+                        : a
+                    )
+                  }));
+                  
+                  audit('interview-feedback', { candidateId, overallScore, recommendation: feedback.recommendation });
+                  
+                  if (newStatus === 'offer') {
+                    addToast(`🎉 Interview feedback recorded - Candidate moved to Offer stage!`, { type: 'success' });
+                  } else if (newStatus === 'rejected') {
+                    addToast(`Interview feedback recorded - Candidate rejected`, { type: 'info' });
+                  } else {
+                    addToast(`Interview feedback recorded - Score: ${overallScore}/10`, { type: 'success' });
+                  }
+                } catch (err) {
+                  console.error('Failed to update interview feedback:', err);
+                  addToast('Failed to save feedback', { type: 'error' });
+                }
               }}
               onAddToShortlist={(candidateIds) => {
                 candidateIds.forEach(id => audit('add-to-shortlist', { candidateId: id }));
@@ -2180,53 +2241,73 @@ function PvaraPhase2() {
             <OfferManagement 
               applications={state.applications}
               jobs={state.jobs}
-              onExtendOffer={(candidateId, offerDetails) => {
-                setState(s => ({
-                  ...s,
-                  applications: s.applications.map(a => 
-                    a.id === candidateId 
-                      ? { ...a, status: 'offer', offer: { ...offerDetails, status: 'pending', extendedAt: new Date().toISOString() } }
-                      : a
-                  )
-                }));
-                audit('extend-offer', { candidateId, salary: offerDetails.salary });
-                addToast('Job offer extended successfully', { type: 'success' });
+              onExtendOffer={async (candidateId, offerDetails) => {
+                try {
+                  await applicationsAPI.updateStatus(candidateId, 'offer');
+                  setState(s => ({
+                    ...s,
+                    applications: s.applications.map(a => 
+                      (a._id || a.id) === candidateId 
+                        ? { ...a, status: 'offer', offer: { ...offerDetails, status: 'pending', extendedAt: new Date().toISOString() } }
+                        : a
+                    )
+                  }));
+                  audit('extend-offer', { candidateId, salary: offerDetails.salary });
+                  addToast('Job offer extended successfully', { type: 'success' });
+                } catch (err) {
+                  addToast('Failed to extend offer', { type: 'error' });
+                }
               }}
-              onAcceptOffer={(candidateId) => {
-                setState(s => ({
-                  ...s,
-                  applications: s.applications.map(a => 
-                    a.id === candidateId 
-                      ? { ...a, offer: { ...a.offer, status: 'accepted', acceptedAt: new Date().toISOString() } }
-                      : a
-                  )
-                }));
-                audit('accept-offer', { candidateId });
-                addToast('🎉 Offer accepted! Begin onboarding process.', { type: 'success' });
+              onAcceptOffer={async (candidateId) => {
+                try {
+                  await applicationsAPI.updateStatus(candidateId, 'hired');
+                  setState(s => ({
+                    ...s,
+                    applications: s.applications.map(a => 
+                      (a._id || a.id) === candidateId 
+                        ? { ...a, status: 'hired', offer: { ...a.offer, status: 'accepted', acceptedAt: new Date().toISOString() } }
+                        : a
+                    )
+                  }));
+                  audit('accept-offer', { candidateId });
+                  addToast('🎉 Offer accepted! Candidate hired!', { type: 'success' });
+                } catch (err) {
+                  addToast('Failed to accept offer', { type: 'error' });
+                }
               }}
-              onRejectOffer={(candidateId) => {
-                setState(s => ({
-                  ...s,
-                  applications: s.applications.map(a => 
-                    a.id === candidateId 
-                      ? { ...a, offer: { ...a.offer, status: 'rejected', rejectedAt: new Date().toISOString() } }
-                      : a
-                  )
-                }));
-                audit('reject-offer', { candidateId });
-                addToast('Offer rejected by candidate', { type: 'info' });
+              onRejectOffer={async (candidateId) => {
+                try {
+                  await applicationsAPI.updateStatus(candidateId, 'rejected');
+                  setState(s => ({
+                    ...s,
+                    applications: s.applications.map(a => 
+                      (a._id || a.id) === candidateId 
+                        ? { ...a, status: 'rejected', offer: { ...a.offer, status: 'rejected', rejectedAt: new Date().toISOString() } }
+                        : a
+                    )
+                  }));
+                  audit('reject-offer', { candidateId });
+                  addToast('Offer rejected by candidate', { type: 'info' });
+                } catch (err) {
+                  addToast('Failed to reject offer', { type: 'error' });
+                }
               }}
-              onWithdrawOffer={(candidateId) => {
-                setState(s => ({
-                  ...s,
-                  applications: s.applications.map(a => 
-                    a.id === candidateId 
-                      ? { ...a, offer: { ...a.offer, status: 'withdrawn', withdrawnAt: new Date().toISOString() } }
-                      : a
-                  )
-                }));
-                audit('withdraw-offer', { candidateId });
-                addToast('Offer withdrawn successfully', { type: 'info' });
+              onWithdrawOffer={async (candidateId) => {
+                try {
+                  await applicationsAPI.updateStatus(candidateId, 'withdrawn');
+                  setState(s => ({
+                    ...s,
+                    applications: s.applications.map(a => 
+                      (a._id || a.id) === candidateId 
+                        ? { ...a, status: 'withdrawn', offer: { ...a.offer, status: 'withdrawn', withdrawnAt: new Date().toISOString() } }
+                        : a
+                    )
+                  }));
+                  audit('withdraw-offer', { candidateId });
+                  addToast('Offer withdrawn successfully', { type: 'info' });
+                } catch (err) {
+                  addToast('Failed to withdraw offer', { type: 'error' });
+                }
               }}
             />
           )}

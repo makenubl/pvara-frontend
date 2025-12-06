@@ -23,9 +23,10 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
         const status = c.status || 'submitted';
         if (statusFilter === 'new') return status === 'submitted';
         if (statusFilter === 'screening') return status === 'screening';
+        if (statusFilter === 'test') return status === 'test-invited' || status === 'test-in-progress' || status === 'test-completed';
         if (statusFilter === 'interview') return status === 'interview' || status === 'phone-interview';
         if (statusFilter === 'rejected') return status === 'rejected';
-        if (statusFilter === 'offer') return status === 'offer';
+        if (statusFilter === 'offer') return status === 'offer' || status === 'hired';
         return true;
       });
     }
@@ -97,10 +98,10 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
       all: all.filter(c => c.status !== 'rejected').length,
       new: all.filter(c => (c.status || 'submitted') === 'submitted').length,
       screening: all.filter(c => c.status === 'screening').length,
-      test: all.filter(c => c.status === 'test-invited').length,
+      test: all.filter(c => c.status === 'test-invited' || c.status === 'test-in-progress' || c.status === 'test-completed').length,
       interview: all.filter(c => c.status === 'interview' || c.status === 'phone-interview').length,
       rejected: all.filter(c => c.status === 'rejected').length,
-      offer: all.filter(c => c.status === 'offer').length,
+      offer: all.filter(c => c.status === 'offer' || c.status === 'hired').length,
     };
   }, [candidates]);
   
@@ -129,7 +130,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
     if (selectedIds.length === paginatedCandidates.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(paginatedCandidates.map(c => c.id));
+      setSelectedIds(paginatedCandidates.map(c => c._id || c.id));
     }
   };
 
@@ -141,7 +142,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
 
   const handleExport = () => {
     const toExport = selectedIds.length > 0 
-      ? candidates.filter(c => selectedIds.includes(c.id))
+      ? candidates.filter(c => selectedIds.includes(c._id || c.id))
       : candidates;
     onExport?.(toExport);
   };
@@ -346,6 +347,19 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
             AI Screened ({statusCounts.screening})
           </button>
           <button
+            onClick={() => setStatusFilter('test')}
+            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition flex items-center gap-2 ${
+              statusFilter === 'test'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+            Test ({statusCounts.test})
+          </button>
+          <button
             onClick={() => setStatusFilter('interview')}
             className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition flex items-center gap-2 ${
               statusFilter === 'interview'
@@ -521,15 +535,15 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
 
         <ul className="space-y-3">
           {paginatedCandidates.map((c) => (
-            <li key={c.id} className={`bg-white p-4 rounded shadow flex gap-3 ${
-              selectedIds.includes(c.id) ? 'ring-2 ring-green-500' : ''
+            <li key={c._id || c.id} className={`bg-white p-4 rounded shadow flex gap-3 ${
+              selectedIds.includes(c._id || c.id) ? 'ring-2 ring-green-500' : ''
             }`}>
               {/* Checkbox */}
               <div className="flex-shrink-0">
                 <input
                   type="checkbox"
-                  checked={selectedIds.includes(c.id)}
-                  onChange={() => toggleSelect(c.id)}
+                  checked={selectedIds.includes(c._id || c.id)}
+                  onChange={() => toggleSelect(c._id || c.id)}
                   className="w-5 h-5 rounded border-gray-300 mt-1"
                 />
               </div>
@@ -601,7 +615,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
                   {showStageActions && c.status === 'screening' && onMoveToTest && (
                     <button 
                       className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-xs hover:from-purple-700 hover:to-blue-700 font-medium flex items-center gap-1 shadow-sm"
-                      onClick={() => onMoveToTest([c.id])}
+                      onClick={() => onMoveToTest([c._id || c.id])}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -611,16 +625,16 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
                   )}
                   {onStatusChange && !showStageActions && (
                     <>
-                      <button className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700" onClick={() => onStatusChange(c.id, "screening")}>Move to AI Screening</button>
-                      <button className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700" onClick={() => onStatusChange(c.id, "rejected")}>Reject</button>
+                      <button className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700" onClick={() => onStatusChange(c._id || c.id, "screening")}>Move to AI Screening</button>
+                      <button className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700" onClick={() => onStatusChange(c._id || c.id, "rejected")}>Reject</button>
                     </>
                   )}
                   {onStatusChange && c.status !== 'rejected' && (
-                    <button className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700" onClick={() => onStatusChange(c.id, "rejected")}>Reject</button>
+                    <button className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700" onClick={() => onStatusChange(c._id || c.id, "rejected")}>Reject</button>
                   )}
                   <button 
                     className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700"
-                    onClick={() => setShowNotesModal(c.id)}
+                    onClick={() => setShowNotesModal(c._id || c.id)}
                   >
                     Add Note
                   </button>
@@ -718,7 +732,7 @@ const CandidateList = ({ candidates, onStatusChange, onAIEvaluate, onBulkAction,
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {selectedIds.map(id => {
-                const candidate = (candidates || []).find(c => c.id === id);
+                const candidate = (candidates || []).find(c => (c._id || c.id) === id);
                 if (!candidate) return null;
                 
                 return (
