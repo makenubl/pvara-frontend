@@ -10,8 +10,6 @@ import CandidateLogin from "./CandidateLogin";
 import AuditLog from "./AuditLog";
 import ApplicationForm from "./ApplicationForm";
 import TestManagement from "./TestManagement";
-import TestingServiceIntegration from "./TestingServiceIntegration";
-import TestingServiceIntegration from "./TestingServiceIntegration";
 import InterviewManagement from "./InterviewManagement";
 import OfferManagement from "./OfferManagement";
 import SettingsPanel from "./SettingsPanel";
@@ -19,22 +17,13 @@ import SystemDashboard from "./SystemDashboard";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
 import Toasts from "./Toasts";
 import { batchEvaluateApplications } from "./aiScreening";
+import { jobsAPI } from "./api/jobs";
+import { applicationsAPI } from "./api/applications";
+import axios from "axios";
 
-// ---------- Storage utilities ----------
-const STORAGE_KEY = "pvara_v3";
-function saveState(s) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-  } catch (e) {}
-}
-function loadState() {
-  try {
-    const r = localStorage.getItem(STORAGE_KEY);
-    return r ? JSON.parse(r) : null;
-  } catch (e) {
-    return null;
-  }
-}
+const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+// Note: localStorage is removed - all data comes from backend API
 function arrayToCSV(rows) {
   return rows.map((r) => r.map((c) => '"' + ("" + c).replace(/"/g, '""') + '"').join(",")).join("\n");
 }
@@ -546,12 +535,55 @@ const emptyJobForm = {
 };
 
 function PvaraPhase2() {
-  const [state, setState] = useState(() => loadState() || defaultState());
-  useEffect(() => saveState(state), [state]);
+  const [state, setState] = useState({
+    jobs: [],
+    applications: [],
+    candidates: [],
+    audit: [],
+    settings: {}
+  });
+  const [loading, setLoading] = useState(true);
 
   const auth = useAuth();
   const user = auth?.user ?? null;
   const { addToast } = useToast();
+  
+  // Fetch data from backend on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch jobs (public endpoint)
+        const jobsResponse = await jobsAPI.getAll();
+        
+        // Fetch applications if user is authenticated
+        let applicationsData = [];
+        if (user) {
+          try {
+            const appsResponse = await applicationsAPI.getAll();
+            applicationsData = appsResponse.applications || [];
+          } catch (err) {
+            console.log('Could not fetch applications:', err.message);
+          }
+        }
+        
+        setState(prev => ({
+          ...prev,
+          jobs: jobsResponse.jobs || [],
+          applications: applicationsData
+        }));
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        addToast('Failed to load data from server', { type: 'error' });
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [user, addToast]);
   
   // Candidate session (CNIC-based login)
   const [candidateSession, setCandidateSession] = useState(null);
@@ -672,38 +704,46 @@ function PvaraPhase2() {
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const createJob = useCallback((jobData) => {
+  const createJob = useCallback(async (jobData) => {
     // Handle both event (from form) and job object (from JobList component)
     if (jobData && typeof jobData.preventDefault === 'function') {
       jobData.preventDefault();
     }
     
-    // If jobData is a job object (from JobList), use it directly
-    if (jobData && jobData.title && !jobData.preventDefault) {
-      const j = { ...jobData, createdAt: jobData.createdAt || new Date().toISOString() };
-      setState((s) => ({ ...s, jobs: [j, ...(s.jobs || [])] }));
-      audit("create-job", { jobId: j.id, title: j.title });
-      addToast("Job created (local)", { type: "success" });
-      return;
-    }
-    
-    // Original form-based logic
-    if (editingJobId) {
-      const updated = { ...normalizeJobFormForSave(jobForm), id: editingJobId };
-      setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j.id === editingJobId ? updated : j)) }));
-      audit("update-job", { jobId: editingJobId, title: updated.title });
-      addToast("Job updated", { type: "success" });
-      setEditingJobId(null);
-      setJobForm(emptyJobForm);
-      return;
-    }
+    try {
+      // If jobData is a job object (from JobList), use it directly
+      if (jobData && jobData.title && !jobData.preventDefault) {
+        const response = await jobsAPI.create(jobData);
+        setState((s) => ({ ...s, jobs: [response.job, ...(s.jobs || [])] }));
+        audit("create-job", { jobId: response.job._id, title: response.job.title });
+        addToast("Job created successfully", { type: "success" });
+        return;
+      }
+      
+      // Original form-based logic - UPDATE
+      if (editingJobId) {
+        const updated = normalizeJobFormForSave(jobForm);
+        const response = await jobsAPI.update(editingJobId, updated);
+        setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j._id === editingJobId || j.id === editingJobId ? response.job : j)) }));
+        audit("update-job", { jobId: editingJobId, title: response.job.title });
+        addToast("Job updated successfully", { type: "success" });
+        setEditingJobId(null);
+        setJobForm(emptyJobForm);
+        return;
+      }
 
-    const j = { ...normalizeJobFormForSave(jobForm), id: `job-${Date.now()}`, createdAt: new Date().toISOString() };
-    setState((s) => ({ ...s, jobs: [j, ...(s.jobs || [])] }));
-    audit("create-job", { jobId: j.id, title: j.title });
-    setJobForm(emptyJobForm);
-    addToast("Job created (local)", { type: "success" });
-  }, [editingJobId, jobForm, addToast, state]); // eslint-disable-line react-hooks/exhaustive-deps
+      // CREATE new job
+      const jobPayload = normalizeJobFormForSave(jobForm);
+      const response = await jobsAPI.create(jobPayload);
+      setState((s) => ({ ...s, jobs: [response.job, ...(s.jobs || [])] }));
+      audit("create-job", { jobId: response.job._id, title: response.job.title });
+      setJobForm(emptyJobForm);
+      addToast("Job created successfully", { type: "success" });
+    } catch (error) {
+      console.error('Error creating/updating job:', error);
+      addToast(error.response?.data?.message || 'Failed to save job', { type: 'error' });
+    }
+  }, [editingJobId, jobForm, addToast]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const audit = useCallback((action, details) => {
     // CORRECTED: use a template literal so JS parses it
@@ -741,7 +781,7 @@ function PvaraPhase2() {
     addToast("Job deleted", { type: "info" });
   }, [addToast, state]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function submitApplication(formData) {
+  async function submitApplication(formData) {
     // Handle both event (from internal form) and form data (from ApplicationForm component)
     if (formData && typeof formData.preventDefault === 'function') {
       formData.preventDefault();
@@ -775,7 +815,7 @@ function PvaraPhase2() {
       };
     }
     
-    const job = (state.jobs || []).find((j) => j.id === applicantData.jobId);
+    const job = (state.jobs || []).find((j) => j._id === applicantData.jobId || j.id === applicantData.jobId);
     if (!job) {
       addToast("Select job", { type: "error" });
       return;
@@ -801,111 +841,60 @@ function PvaraPhase2() {
       return;
     }
 
-    finalizeApplication(job, files, false, applicantData);
+    await finalizeApplication(job, files, false, applicantData);
   }
 
-  function finalizeApplication(job, files, manual, applicantData) {
-    const data = applicantData || appForm;
-    const filesNames = (files || []).map((f) => f.name);
-    
-    // Check if candidate profile exists by CNIC
-    const cnic = data.cnic || 'N/A';
-    let candidate = (state.candidates || []).find(c => c.cnic === cnic);
-    
-    // Check for duplicate application to same job
-    if (candidate) {
-      const existingApp = (state.applications || []).find(
-        app => app.applicant.cnic === cnic && app.jobId === job.id
-      );
-      if (existingApp) {
-        addToast(`You have already applied to ${job.title}`, { type: "warning" });
-        return;
-      }
-    }
-    
-    const app = {
-      id: `app-${Date.now()}`,
-      jobId: job.id,
-      applicant: { ...data },
-      files: filesNames,
-      status: manual ? "manual-review" : "submitted",
-      createdAt: new Date().toISOString(),
-      screeningErrors: manual ? ["failed mandatory checks"] : [],
-    };
-    
-    // Create or update candidate profile
-    if (!candidate) {
-      candidate = {
-        cnic: cnic,
-        name: data.name,
-        phone: data.phone,
-        primaryEmail: data.email,
-        emails: [data.email],
-        applications: [app.id],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+  async function finalizeApplication(job, files, manual, applicantData) {
+    try {
+      const data = applicantData || appForm;
+      const filesNames = (files || []).map((f) => f.name);
+      
+      // Prepare application payload for backend
+      const applicationPayload = {
+        jobId: job._id || job.id,
+        applicant: {
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          cnic: data.cnic || 'N/A',
+          degree: data.degree,
+          experienceYears: Number(data.experienceYears) || 0,
+          address: data.address,
+          linkedin: data.linkedin || '',
+          cv: filesNames[0] || 'resume.pdf', // Backend expects cv field
+        },
+        education: data.education,
+        employment: data.employment,
+        skills: data.skills,
+        languages: data.languages,
+        coverLetter: data.coverLetter,
+        status: manual ? "manual-review" : "submitted",
+        files: filesNames
       };
-      setState((s) => ({ ...s, candidates: [...(s.candidates || []), candidate] }));
-    } else {
-      // Update existing candidate profile
-      setState((s) => ({
-        ...s,
-        candidates: (s.candidates || []).map(c => {
-          if (c.cnic === cnic) {
-            return {
-              ...c,
-              // Update name and phone if changed
-              name: data.name,
-              phone: data.phone,
-              // Add new email if different
-              emails: c.emails.includes(data.email) ? c.emails : [...c.emails, data.email],
-              // Link application
-              applications: [...c.applications, app.id],
-              updatedAt: new Date().toISOString(),
-            };
-          }
-          return c;
-        })
-      }));
+      
+      // Submit to backend API
+      const response = await applicationsAPI.create(applicationPayload);
+      
+      // Add to local state
+      setState((s) => ({ ...s, applications: [response.application, ...(s.applications || [])] }));
+      audit("submit-app", { appId: response.application._id, jobId: job._id || job.id, status: response.application.status });
+      
+      // Reset form
+      setAppForm({ jobId: state.jobs[0]?._id || state.jobs[0]?.id || "", name: "", email: "", cnic: "", phone: "", degree: "", experienceYears: "", address: "", linkedin: "" });
+      if (fileRef.current) fileRef.current.value = null;
+      
+      addToast(`Application submitted successfully for ${job.title}!`, { type: "success" });
+      
+      // Redirect to My Applications page after 1 second
+      setTimeout(() => {
+        setView("my-apps");
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to submit application';
+      addToast(errorMsg, { type: "error" });
     }
-    setState((s) => ({ ...s, applications: [app, ...(s.applications || [])] }));
-    audit("submit-app", { appId: app.id, jobId: job.id, status: app.status });
-    setAppForm({ jobId: state.jobs[0]?.id || "", name: "", email: "", cnic: "", phone: "", degree: "", experienceYears: "", address: "", linkedin: "" });
-    if (fileRef.current) fileRef.current.value = null;
-    addToast(`Application submitted successfully for ${job.title}!`, { type: "success" });
-    
-    // Redirect to My Applications page after 1 second
-    setTimeout(() => {
-      setView("my-apps");
-    }, 1500);
-    
-    // Send confirmation email
-    const emailData = {
-      to: data.email,
-      templateType: "APPLICATION_RECEIVED",
-      data: {
-        candidateName: data.name,
-        jobTitle: job.title,
-      },
-    };
-    
-    const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
-    fetch(`${apiUrl}/api/send-email-template`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(emailData),
-    })
-      .then((res) => res.json())
-      .then((result) => {
-        if (result.success) {
-          console.log(`📧 Confirmation email sent to ${data.email}`);
-        } else {
-          console.log("📧 Email service unavailable (backend not running)");
-        }
-      })
-      .catch((err) => {
-        console.log("📧 Email service unavailable:", err.message);
-      });
   }
 
   // Simple job form validator (inline validations)
@@ -922,42 +911,35 @@ function PvaraPhase2() {
   }
 
   // Change application status (shortlist, interview, reject, hired, etc.)
-  function changeApplicationStatus(appId, status, note) {
-    setState((s) => {
-      const apps = (s.applications || []).map((a) => (a.id === appId ? { ...a, status, screeningErrors: status === 'rejected' ? [note || 'Rejected by reviewer'] : (a.screeningErrors || []) } : a));
-      return { ...s, applications: apps };
-    });
-    audit("change-app-status", { appId, status, note });
-    addToast("Application status updated: " + status, { type: status === 'rejected' ? 'error' : 'success' });
-    setDrawer((d) => (d.open && d.app && d.app.id === appId ? { ...d, app: { ...d.app, status } } : d));
-    
-    // Send status update email
-    const app = (state.applications || []).find((a) => a.id === appId);
-    if (app && app.applicant && app.applicant.email) {
-      const emailTemplates = {
-        shortlisted: "APPLICATION_SHORTLISTED",
-        interviewed: "INTERVIEW_SCHEDULED",
-        rejected: "REJECTION",
-      };
+  async function changeApplicationStatus(appId, status, note) {
+    try {
+      // Update via API
+      await applicationsAPI.updateStatus(appId, status, note);
       
-      const templateType = emailTemplates[status];
-      if (templateType) {
-        const job = (state.jobs || []).find((j) => j.id === app.jobId);
-        const emailData = {
-          to: app.applicant.email,
-          templateType,
-          data: {
-            candidateName: app.applicant.name,
-            jobTitle: job?.title || "Position",
-          },
-        };
-        
-        const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
-        fetch(`${apiUrl}/api/send-email-template`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(emailData),
-        })
+      // Update local state
+      setState((s) => {
+        const apps = (s.applications || []).map((a) => {
+          const id = a._id || a.id;
+          return id === appId ? { ...a, status, screeningErrors: status === 'rejected' ? [note || 'Rejected by reviewer'] : (a.screeningErrors || []) } : a;
+        });
+        return { ...s, applications: apps };
+      });
+      
+      audit("change-app-status", { appId, status, note });
+      addToast("Application status updated: " + status, { type: status === 'rejected' ? 'error' : 'success' });
+      setDrawer((d) => {
+        if (d.open && d.app) {
+          const id = d.app._id || d.app.id;
+          return id === appId ? { ...d, app: { ...d.app, status } } : d;
+        }
+        return d;
+      });
+      
+    } catch (error) {
+      console.error('Error updating application status:', error);
+      addToast(error.response?.data?.message || 'Failed to update status', { type: 'error' });
+    }
+  }
           .then((res) => res.json())
           .then((data) => {
             if (data.success) {
@@ -1172,14 +1154,12 @@ function PvaraPhase2() {
             </button>
           )}
           {auth.hasRole(['hr','admin','recruiter']) && (
-            <button onClick={() => { setView("test-management"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "test-management" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"/></svg>
-              Test Management
-            </button>
-            <button onClick={() => { setView("testing-integration"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "testing-integration" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-              Testing Services (TestGorilla)
-            </button>
+            <>
+              <button onClick={() => { setView("test-management"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "test-management" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"/></svg>
+                Test Management
+              </button>
+            </>
           )}
           {auth.hasRole(['hr','admin','recruiter']) && (
             <button onClick={() => { setView("interview-management"); setMobileMenuOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${view === "interview-management" ? "glass-button text-green-700 shadow-md" : "hover:glass-button"}`}>
@@ -2092,6 +2072,18 @@ function PvaraPhase2() {
     );
   }
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-green-700 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading data from server...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -2136,35 +2128,6 @@ function PvaraPhase2() {
             <TestManagement 
               applications={state.applications}
               jobs={state.jobs}
-              onSendTest={(candidateIds) => {
-                candidateIds.forEach(id => {
-                  changeApplicationStatus(id, 'test-invited');
-                  audit('send-test', { candidateId: id });
-                });
-                addToast(`Test invitation sent to ${candidateIds.length} candidate(s)`, { type: 'success' });
-              }}
-              onRecordTestResult={(candidateId, results) => {
-                const newStatus = results.passed ? 'interview' : 'rejected';
-                setState(s => ({
-                  ...s,
-                  applications: s.applications.map(a => 
-                    a.id === candidateId 
-                      ? { ...a, testResults: { ...results, recorded: true, status: 'completed', completedAt: new Date().toISOString() }, status: newStatus }
-                      : a
-                  )
-                }));
-                audit('record-test-result', { candidateId, passed: results.passed, score: results.score });
-                addToast(results.passed ? 'Test passed - moved to interview stage' : 'Test failed - candidate rejected', { type: results.passed ? 'success' : 'info' });
-              }}
-            />
-          )}
-          {view === "interview-management" && (
-            <InterviewManagement 
-              applications={state.applications}
-          {view === "testing-integration" && (
-            <TestingServiceIntegration
-              applications={state.applications}
-              jobs={state.jobs}
               onUpdateApplication={(appId, updates) => {
                 setState(prev => ({
                   ...prev,
@@ -2173,8 +2136,24 @@ function PvaraPhase2() {
                   )
                 }));
               }}
+              onMoveToInterview={(candidateId) => {
+                setState(s => ({
+                  ...s,
+                  applications: s.applications.map(a => 
+                    a.id === candidateId 
+                      ? { ...a, status: 'interview' }
+                      : a
+                  )
+                }));
+                audit('move-to-interview', { candidateId, from: 'test-completed' });
+                addToast('Candidate moved to interview stage', { type: 'success' });
+              }}
             />
           )}
+
+          {view === "interview-management" && (
+            <InterviewManagement 
+              applications={state.applications}
               jobs={state.jobs}
               onInterviewFeedback={(candidateId, feedback) => {
                 const overallScore = ((feedback.technicalRating + feedback.communicationRating + feedback.cultureFitRating + feedback.problemSolvingRating) / 4).toFixed(1);
@@ -2260,7 +2239,8 @@ function PvaraPhase2() {
               }}
               onTestEmail={async (testEmail) => {
                 try {
-                  const response = await fetch('http://localhost:5000/api/send-email', {
+                  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+                  const response = await fetch(`${apiUrl}/api/send-email`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2374,11 +2354,11 @@ function PvaraPhase2() {
                 <div className="mt-4 border-t pt-4">
                   <div className="font-semibold mb-2 text-sm">Actions</div>
                   <div className="space-y-2">
-                    <button onClick={() => changeApplicationStatus(drawer.app.id, "screening", "")} className="w-full px-2 py-1 border rounded text-sm bg-yellow-50 hover:bg-yellow-100">Screen</button>
-                    <button onClick={() => changeApplicationStatus(drawer.app.id, "phone-interview", "")} className="w-full px-2 py-1 border rounded text-sm bg-blue-50 hover:bg-blue-100">Phone Interview</button>
-                    <button onClick={() => changeApplicationStatus(drawer.app.id, "interview", "")} className="w-full px-2 py-1 border rounded text-sm bg-blue-50 hover:bg-blue-100">In-Person Interview</button>
-                    <button onClick={() => changeApplicationStatus(drawer.app.id, "offer", "")} className="w-full px-2 py-1 border rounded text-sm bg-green-50 hover:bg-green-100">Send Offer</button>
-                    <button onClick={() => changeApplicationStatus(drawer.app.id, "rejected", "Does not meet criteria")} className="w-full px-2 py-1 border rounded text-sm bg-red-50 hover:bg-red-100">Reject</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "screening", "")} className="w-full px-2 py-1 border rounded text-sm bg-yellow-50 hover:bg-yellow-100">Screen</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "phone-interview", "")} className="w-full px-2 py-1 border rounded text-sm bg-blue-50 hover:bg-blue-100">Phone Interview</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "interview", "")} className="w-full px-2 py-1 border rounded text-sm bg-blue-50 hover:bg-blue-100">In-Person Interview</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "offer", "")} className="w-full px-2 py-1 border rounded text-sm bg-green-50 hover:bg-green-100">Send Offer</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "rejected", "Does not meet criteria")} className="w-full px-2 py-1 border rounded text-sm bg-red-50 hover:bg-red-100">Reject</button>
                   </div>
                 </div>
               )}
