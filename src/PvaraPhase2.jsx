@@ -669,6 +669,8 @@ function PvaraPhase2() {
     addToast(`Generated ${newApps.length} test applications`, "success");
   }, [state.applications.length, state.jobs, addToast]);
 
+  // State declarations (must be before useEffect that uses them)
+  const [view, setView] = useState("jobs");
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [editingJobId, setEditingJobId] = useState(null);
   const [jobForm, setJobForm] = useState(emptyJobForm);
@@ -684,7 +686,6 @@ function PvaraPhase2() {
     linkedin: "",
   });
   const fileRef = useRef(null);
-  const [view, setView] = useState("jobs");
   const [confirm, setConfirm] = useState({ open: false, title: "", message: "", onConfirm: null });
   const [drawer, setDrawer] = useState({ open: false, app: null });
   const [hrSearch, setHrSearch] = useState("");
