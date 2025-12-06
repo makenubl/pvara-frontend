@@ -20,9 +20,6 @@ import LoginModal from "./LoginModal";
 import { batchEvaluateApplications } from "./aiScreening";
 import { jobsAPI } from "./api/jobs";
 import { applicationsAPI } from "./api/applications";
-import axios from "axios";
-
-const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 // Note: localStorage is removed - all data comes from backend API
 function arrayToCSV(rows) {
@@ -126,7 +123,8 @@ function generateTestApplications(jobs, baseTime = Date.now()) {
   return applications;
 }
 
-// ---------- Default state ----------
+// ---------- Default state (not used - data comes from backend) ----------
+// eslint-disable-next-line no-unused-vars
 function defaultState() {
   const jobs = [
     {
@@ -671,7 +669,6 @@ function PvaraPhase2() {
     addToast(`Generated ${newApps.length} test applications`, "success");
   }, [state.applications.length, state.jobs, addToast]);
 
-  const [view, setView] = useState("jobs");
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [editingJobId, setEditingJobId] = useState(null);
   const [jobForm, setJobForm] = useState(emptyJobForm);
@@ -687,6 +684,7 @@ function PvaraPhase2() {
     linkedin: "",
   });
   const fileRef = useRef(null);
+  const [view, setView] = useState("jobs");
   const [confirm, setConfirm] = useState({ open: false, title: "", message: "", onConfirm: null });
   const [drawer, setDrawer] = useState({ open: false, app: null });
   const [hrSearch, setHrSearch] = useState("");
@@ -951,16 +949,6 @@ function PvaraPhase2() {
     } catch (error) {
       console.error('Error updating application status:', error);
       addToast(error.response?.data?.message || 'Failed to update status', { type: 'error' });
-    }
-  }
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.success) {
-              console.log(`📧 Status email sent to ${app.applicant.email}`);
-            }
-          })
-          .catch((err) => console.log("📧 Email unavailable:", err.message));
-      }
     }
   }
 
