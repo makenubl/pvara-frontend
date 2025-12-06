@@ -98,10 +98,11 @@ function TestManagement({
         const candidate = applications.find(a => a.id === candidateId);
         if (!candidate) continue;
 
-        const job = jobs.find(j => j.id === candidate.jobId);
+        const job = jobs.find(j => (j._id || j.id) === (candidate.jobId?._id || candidate.jobId));
         if (!job || !job.requiredTests || job.requiredTests.length === 0) {
-          console.warn(`No required tests for job ${job?.title}`);
+          console.warn(`No required tests for job ${job?.title || candidate.jobId}`);
           failCount++;
+          addToast(`❌ Job or required tests not found for ${candidate.applicant?.name || 'candidate'}`, { type: 'error' });
           continue;
         }
 

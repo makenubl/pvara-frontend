@@ -1,43 +1,78 @@
 // src/AuthContext.jsx
 import React, { createContext, useContext, useEffect, useState } from "react";
+import axios from "axios";
 
 const AuthCtx = createContext();
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const demoUsers = [
-  { username: "admin", password: "admin", role: "admin", name: "Admin User" },
-  { username: "hr", password: "hr", role: "hr", name: "HR User" },
-  { username: "recruit", password: "rec", role: "recruiter", name: "Recruiter" },
-  { username: "viewer", password: "view", role: "viewer", name: "Viewer" },
+  { username: "admin", password: "admin123", role: "admin", name: "Admin User" },
+  { username: "hr", password: "hr123", role: "hr", name: "HR User" },
+  { username: "recruit", password: "rec123", role: "recruiter", name: "Recruiter" },
+  { username: "viewer", password: "view123", role: "viewer", name: "Viewer" },
 ];
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem("pvara_user");
-      if (stored) return JSON.parse(stored);
-      // Auto-login as admin for demo
-      const defaultUser = { username: "admin", role: "admin", name: "Admin User" };
-      return defaultUser;
+      const token = localStorage.getItem("token");
+      if (stored && token) return JSON.parse(stored);
+      return null; // No auto-login - require explicit login
     } catch { 
-      return { username: "admin", role: "admin", name: "Admin User" };
+      return null;
     }
   });
 
   useEffect(() => {
-    localStorage.setItem("pvara_user", JSON.stringify(user));
+    if (user) {
+      localStorage.setItem("pvara_user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("pvara_user");
+    }
   }, [user]);
 
-  function login({ username, password }) {
-    const found = demoUsers.find(u => u.username === username && u.password === password);
-    if (!found) return { ok: false, message: "Invalid credentials" };
-    const payload = { username: found.username, role: found.role, name: found.name };
-    setUser(payload);
-    return { ok: true, user: payload };
+  async function login({ username, password }) {
+    try {
+      // Try backend API first
+      const response = await axios.post(`${API_URL}/api/auth/login`, {
+        username,
+        password
+      });
+
+      if (response.data.success) {
+        const { token, user: userData } = response.data;
+        localStorage.setItem('token', token);
+        const userPayload = {
+          username: userData.username,
+          role: userData.role,
+          name: userData.fullName || userData.username,
+          email: userData.email
+        };
+        setUser(userPayload);
+        return { ok: true, user: userPayload };
+      }
+    } catch (error) {
+      console.log('Backend auth failed, trying demo credentials...');
+      
+      // Fallback to demo users for development
+      const found = demoUsers.find(u => u.username === username && u.password === password);
+      if (found) {
+        const payload = { username: found.username, role: found.role, name: found.name };
+        setUser(payload);
+        // Create a demo token
+        localStorage.setItem('token', 'demo-token-' + Date.now());
+        return { ok: true, user: payload };
+      }
+    }
+    
+    return { ok: false, message: "Invalid credentials" };
   }
 
   function logout() {
     setUser(null);
     localStorage.removeItem("pvara_user");
+    localStorage.removeItem("token");
   }
 
   const hasRole = (roles) => {

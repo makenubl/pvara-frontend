@@ -16,6 +16,7 @@ import SettingsPanel from "./SettingsPanel";
 import SystemDashboard from "./SystemDashboard";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
 import Toasts from "./Toasts";
+import LoginModal from "./LoginModal";
 import { batchEvaluateApplications } from "./aiScreening";
 import { jobsAPI } from "./api/jobs";
 import { applicationsAPI } from "./api/applications";
@@ -585,6 +586,17 @@ function PvaraPhase2() {
     fetchData();
   }, [user, addToast]);
   
+  // Show login modal for protected views if not authenticated
+  useEffect(() => {
+    const protectedViews = ['admin', 'hr', 'test-management', 'interview-management', 'offer-management', 'audit', 'settings', 'system-dashboard', 'dashboard'];
+    
+    if (!user && protectedViews.includes(view)) {
+      setShowLoginModal(true);
+      // Redirect to jobs page
+      setView('jobs');
+    }
+  }, [view, user]);
+  
   // Candidate session (CNIC-based login)
   const [candidateSession, setCandidateSession] = useState(null);
   
@@ -680,6 +692,7 @@ function PvaraPhase2() {
   const [hrSearch, setHrSearch] = useState("");
   const [jobSearch, setJobSearch] = useState("");
   const [selectedApps, setSelectedApps] = useState([]);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Memoized handlers to prevent input focus loss
   // eslint-disable-next-line no-unused-vars
@@ -2371,6 +2384,14 @@ function PvaraPhase2() {
 
       {/* Interview Evaluation Modal */}
       {/* TODO: Add InterviewEvaluationForm modal integration here when available */}
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <LoginModal 
+          onClose={() => setShowLoginModal(false)}
+          onLogin={auth.login}
+        />
+      )}
 
       <ConfirmModal
         open={confirm.open}
