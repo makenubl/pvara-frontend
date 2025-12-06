@@ -191,27 +191,27 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">First Name *</label>
-                  <input value={form.firstName} onChange={e => handleChange('firstName', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required />
+                  <input value={form.firstName} onChange={e => handleChange('firstName', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required maxLength="50" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Last Name *</label>
-                  <input value={form.lastName} onChange={e => handleChange('lastName', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required />
+                  <input value={form.lastName} onChange={e => handleChange('lastName', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required maxLength="50" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Preferred Name</label>
-                  <input value={form.preferredName} onChange={e => handleChange('preferredName', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" />
+                  <input value={form.preferredName} onChange={e => handleChange('preferredName', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" maxLength="50" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address *</label>
-                  <input type="email" value={form.email} onChange={e => handleChange('email', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required />
+                  <input type="email" value={form.email} onChange={e => handleChange('email', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required maxLength="100" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number *</label>
-                  <input value={form.phone} onChange={e => handleChange('phone', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required />
+                  <input value={form.phone} onChange={e => handleChange('phone', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required maxLength="20" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Alternate Phone</label>
-                  <input value={form.alternatePhone} onChange={e => handleChange('alternatePhone', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" />
+                  <input value={form.alternatePhone} onChange={e => handleChange('alternatePhone', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" maxLength="20" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -242,28 +242,28 @@ const ApplicationForm = ({ onSubmit, jobs = [] }) => {
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Country/Region *</label>
-                    <input value={form.country} onChange={e => handleChange('country', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required />
+                    <input value={form.country} onChange={e => handleChange('country', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required maxLength="50" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Street Address 1</label>
-                    <input value={form.streetAddress1} onChange={e => handleChange('streetAddress1', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" />
+                    <input value={form.streetAddress1} onChange={e => handleChange('streetAddress1', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" maxLength="100" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Street Address 2</label>
-                    <input value={form.streetAddress2} onChange={e => handleChange('streetAddress2', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" />
+                    <input value={form.streetAddress2} onChange={e => handleChange('streetAddress2', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" maxLength="100" />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">City/Town *</label>
-                      <input value={form.city} onChange={e => handleChange('city', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required />
+                      <input value={form.city} onChange={e => handleChange('city', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required maxLength="50" />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">State/Province *</label>
-                      <input value={form.state} onChange={e => handleChange('state', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required />
+                      <input value={form.state} onChange={e => handleChange('state', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required maxLength="50" />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Zip/Postal Code *</label>
-                      <input value={form.postalCode} onChange={e => handleChange('postalCode', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required />
+                      <input value={form.postalCode} onChange={e => handleChange('postalCode', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition" required maxLength="20" />
                     </div>
                   </div>
                 </div>
