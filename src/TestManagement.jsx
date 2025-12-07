@@ -36,7 +36,7 @@ function TestManagement({
 
   async function fetchAvailableTests() {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://pvara-backend.fortanixor.com';
       const response = await axios.get(`${apiUrl}/api/testing/assessments`);
       if (response.data.assessments) {
         setAvailableTests(response.data.assessments);
@@ -56,7 +56,7 @@ function TestManagement({
   const handleRefreshStatuses = async () => {
     setRefreshing(true);
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://pvara-backend.fortanixor.com';
       const pendingCandidates = applications.filter(app => 
         app.testing?.status === 'invited' || app.testing?.status === 'pending' || app.testing?.status === 'in-progress'
       );
@@ -213,7 +213,7 @@ function TestManagement({
 
         // Send test via API
         try {
-          const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+          const apiUrl = process.env.REACT_APP_API_URL || 'https://pvara-backend.fortanixor.com';
           const cnic = candidate.applicant?.cnic;
           const name = candidate.applicant?.name || candidate.name;
           
@@ -294,7 +294,7 @@ function TestManagement({
 
   const handleSimulateCompletion = async (candidateId) => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://pvara-backend.fortanixor.com';
       const response = await axios.post(`${apiUrl}/api/testing/simulate-completion/${candidateId}`);
       
       if (response.data.success) {
@@ -328,7 +328,7 @@ function TestManagement({
   // Handle reject after test
   const handleRejectCandidate = async (candidateId) => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://pvara-backend.fortanixor.com';
       await axios.put(`${apiUrl}/api/applications/${candidateId}/status`, { status: 'rejected' });
       onUpdateApplication(candidateId, { status: 'rejected' });
       addToast('❌ Candidate rejected', { type: 'info' });

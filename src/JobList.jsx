@@ -31,7 +31,7 @@ const JobList = ({ jobs, onCreate, onEdit, onDelete }) => {
   async function fetchAvailableTests() {
     setLoadingTests(true);
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://pvara-backend.fortanixor.com';
       const response = await axios.get(`${apiUrl}/api/testing/assessments`);
       if (response.data.assessments) {
         setAvailableTests(response.data.assessments);

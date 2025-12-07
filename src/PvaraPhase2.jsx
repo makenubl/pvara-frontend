@@ -2322,7 +2322,7 @@ function PvaraPhase2() {
               }}
               onTestEmail={async (testEmail) => {
                 try {
-                  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+                  const apiUrl = process.env.REACT_APP_API_URL || 'https://pvara-backend.fortanixor.com';
                   const response = await fetch(`${apiUrl}/api/send-email`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

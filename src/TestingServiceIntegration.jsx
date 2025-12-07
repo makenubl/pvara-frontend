@@ -64,7 +64,7 @@ function TestingServiceIntegration({ applications = [], jobs = [], onUpdateAppli
     setLoading(true);
     try {
       // Mock API call to send test
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://pvara-backend.fortanixor.com';
       
       for (const candidateId of selectedCandidates) {
         const candidate = applications.find(app => app.id === candidateId);

@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "axios";
 
 const AuthCtx = createContext();
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = process.env.REACT_APP_API_URL || 'https://pvara-backend.fortanixor.com';
 
 // Create axios instance with ngrok header
 const authClient = axios.create({
