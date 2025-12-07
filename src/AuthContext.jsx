@@ -5,6 +5,15 @@ import axios from "axios";
 const AuthCtx = createContext();
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
+// Create axios instance with ngrok header
+const authClient = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
+  }
+});
+
 const demoUsers = [
   { username: "admin", password: "admin123", role: "admin", name: "Admin User" },
   { username: "hr", password: "hr123", role: "hr", name: "HR User" },
@@ -35,7 +44,7 @@ export function AuthProvider({ children }) {
   async function login({ username, password }) {
     try {
       // Try backend API first
-      const response = await axios.post(`${API_URL}/api/auth/login`, {
+      const response = await authClient.post('/api/auth/login', {
         username,
         password
       });
