@@ -101,9 +101,9 @@ const ApplicationForm = ({ onSubmit, jobs = [], selectedJobId = "" }) => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="max-w-5xl mx-auto px-4">
       {/* Progress Steps */}
-      <div className="mb-8 bg-white rounded-lg shadow-sm p-6">
+      <div className="mb-8 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <div className="flex items-center justify-between gap-2">
           {steps.map((step, index) => (
             <React.Fragment key={index}>

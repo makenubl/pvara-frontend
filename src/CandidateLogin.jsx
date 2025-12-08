@@ -39,8 +39,8 @@ export default function CandidateLogin({ onLogin, onCancel }) {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full">
+    <div style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="max-w-2xl mx-auto px-4">
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sm:p-8 w-full">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
@@ -80,9 +80,9 @@ export default function CandidateLogin({ onLogin, onCancel }) {
               <button
                 type="button"
                 onClick={() => setVerificationMethod("phone")}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition ${
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
                   verificationMethod === "phone"
-                    ? "bg-green-700 text-white"
+                    ? "bg-blue-600 text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
@@ -91,9 +91,9 @@ export default function CandidateLogin({ onLogin, onCancel }) {
               <button
                 type="button"
                 onClick={() => setVerificationMethod("email")}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition ${
+                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
                   verificationMethod === "email"
-                    ? "bg-green-700 text-white"
+                    ? "bg-blue-600 text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
@@ -139,7 +139,7 @@ export default function CandidateLogin({ onLogin, onCancel }) {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-green-700 text-white py-3 rounded-lg font-semibold hover:bg-green-800 transition flex items-center justify-center gap-2"
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />

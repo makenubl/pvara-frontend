@@ -14,10 +14,10 @@ const MyCandidateApplications = ({ applications, candidateProfile, jobs }) => {
   const emailsUsed = [...new Set(myApplications.map(app => app.applicant?.email).filter(Boolean))];
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="max-w-4xl mx-auto px-4">
       {/* Candidate Profile Header */}
       {candidateProfile && (
-        <div className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-xl shadow-sm border border-green-600 p-5 sm:p-6 mb-6">
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-2xl font-bold mb-2">{candidateProfile.name}</h2>
@@ -58,7 +58,7 @@ const MyCandidateApplications = ({ applications, candidateProfile, jobs }) => {
       </div>
 
       {myApplications.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 text-center">
           <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
@@ -70,7 +70,7 @@ const MyCandidateApplications = ({ applications, candidateProfile, jobs }) => {
           {myApplications.map((app) => {
             const job = (jobs || []).find(j => j.id === app.jobId);
             return (
-            <div key={app.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+            <div key={app.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6 hover:shadow-md hover:border-gray-300 transition-all hover:-translate-y-0.5">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800">

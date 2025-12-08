@@ -11,9 +11,9 @@ export function AnalyticsDashboard({ state, onGenerateTestData }) {
   const report = generateHiringReport(state);
 
   return (
-    <div className="space-y-6">
+    <div style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="space-y-6">
       {/* Header with test data button */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-bold text-gray-800">Analytics Dashboard</h2>
         {onGenerateTestData && analytics.totalApplications === 0 && (
           <button
@@ -75,7 +75,7 @@ export function AnalyticsDashboard({ state, onGenerateTestData }) {
           </div>
 
           {/* Conversion Rates */}
-          <div className="bg-white p-4 rounded shadow">
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
             <h4 className="font-semibold mb-3">Conversion Rates</h4>
             <div className="space-y-2">
               <ProgressBar
@@ -94,7 +94,7 @@ export function AnalyticsDashboard({ state, onGenerateTestData }) {
           </div>
 
           {/* Time to Hire */}
-          <div className="bg-white p-4 rounded shadow">
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
             <h4 className="font-semibold mb-3">Time to Hire</h4>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>

@@ -1,6 +1,21 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://pvara-backend.fortanixor.com';
+const DEFAULT_REMOTE_API = 'https://pvara-backend.fortanixor.com';
+const LOCAL_DEV_API = 'http://localhost:5000';
+
+const nodeEnv = process.env.NODE_ENV;
+let API_URL = process.env.REACT_APP_API_URL
+  || (nodeEnv === 'development' ? LOCAL_DEV_API : DEFAULT_REMOTE_API);
+
+if (!API_URL && typeof window !== 'undefined') {
+  const protocol = window.location?.protocol || 'http:';
+  const host = window.location?.hostname || 'localhost';
+  API_URL = `${protocol}//${host}:5000`;
+}
+
+if (nodeEnv === 'development' && typeof window !== 'undefined') {
+  console.info('[api] Using backend base URL:', API_URL);
+}
 
 // Create axios instance
 const apiClient = axios.create({

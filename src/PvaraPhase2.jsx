@@ -35,10 +35,10 @@ function ConfirmModal({ open, title, message, onConfirm, onCancel }) {
         <div className="font-semibold">{title}</div>
         <div className="mt-2 text-sm whitespace-pre-wrap">{message}</div>
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onCancel} className="px-3 py-1 border rounded">
+          <button onClick={onCancel} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors">
             Cancel
           </button>
-          <button onClick={onConfirm} className="px-3 py-1 bg-green-700 text-white rounded">
+          <button onClick={onConfirm} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
             Confirm
           </button>
         </div>
@@ -737,6 +737,7 @@ function PvaraPhase2() {
       // Original form-based logic - UPDATE
       if (editingJobId) {
         const updated = normalizeJobFormForSave(jobForm);
+        console.log('Updating job:', { id: editingJobId, data: updated, user: user?.username });
         const response = await jobsAPI.update(editingJobId, updated);
         setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j._id === editingJobId || j.id === editingJobId ? response.job : j)) }));
         audit("update-job", { jobId: editingJobId, title: response.job.title });
@@ -748,16 +749,25 @@ function PvaraPhase2() {
 
       // CREATE new job
       const jobPayload = normalizeJobFormForSave(jobForm);
+      console.log('Creating job with payload:', jobPayload, 'User:', user?.username, 'Role:', user?.role);
       const response = await jobsAPI.create(jobPayload);
       setState((s) => ({ ...s, jobs: [response.job, ...(s.jobs || [])] }));
       audit("create-job", { jobId: response.job._id, title: response.job.title });
       setJobForm(emptyJobForm);
       addToast("Job created successfully", { type: "success" });
     } catch (error) {
-      console.error('Error creating/updating job:', error);
-      addToast(error.response?.data?.message || 'Failed to save job', { type: 'error' });
+      console.error('Error creating/updating job:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        user: user?.username,
+        userRole: user?.role,
+        payload: jobForm
+      });
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Failed to save job';
+      addToast(errorMsg, { type: 'error' });
     }
-  }, [editingJobId, jobForm, addToast]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [editingJobId, jobForm, user, addToast]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const audit = useCallback((action, details) => {
     // CORRECTED: use a template literal so JS parses it
@@ -918,6 +928,8 @@ function PvaraPhase2() {
     const errs = [];
     if (!form.title || !form.title.trim()) errs.push("Title required");
     if (!form.department || !form.department.trim()) errs.push("Department required");
+    if (!form.grade || !form.grade.trim()) errs.push("Grade/Level required");
+    if (!form.locations || form.locations.length === 0) errs.push("At least one location required");
     const openingsNum = form.openings === "" ? null : Number(form.openings);
     if (openingsNum !== null && openingsNum <= 0) errs.push("Openings must be > 0");
     const salaryMinNum = form.salary?.min === "" ? null : Number(form.salary?.min);
@@ -1216,7 +1228,7 @@ function PvaraPhase2() {
                   auth.logout();
                   setView("dashboard");
                 }}
-                className="text-xs px-3 py-1.5 glass-button rounded-lg hover:shadow-md transition-all font-medium flex items-center gap-2 w-full justify-center"
+                className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium flex items-center gap-2 w-full justify-center"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                 Logout
@@ -1282,7 +1294,10 @@ function PvaraPhase2() {
 
     const jobErrs = validateJobForm(localForm);
     return (
-      <form onSubmit={createJob} className="space-y-2">
+      <form onSubmit={(e) => {
+        console.log('Form submitted with localForm:', localForm);
+        createJob(e);
+      }} className="space-y-2">
         <input 
           value={localForm.title} 
           onChange={(e) => handleLocalChange('title', e.target.value)} 
@@ -1297,10 +1312,24 @@ function PvaraPhase2() {
           className="border p-2 rounded w-full" 
           autoComplete="off"
         />
+        <input 
+          value={localForm.grade} 
+          onChange={(e) => handleLocalChange('grade', e.target.value)} 
+          placeholder="Grade/Level" 
+          className="border p-2 rounded w-full" 
+          autoComplete="off"
+        />
         <textarea 
           value={localForm.description} 
           onChange={(e) => handleLocalChange('description', e.target.value)} 
           placeholder="Description" 
+          className="border p-2 rounded w-full" 
+          autoComplete="off"
+        />
+        <input 
+          value={(localForm.locations || []).join(", ")} 
+          onChange={(e) => handleLocalChange('locations', e.target.value.split(",").map(l => l.trim()).filter(l => l))} 
+          placeholder="Locations (comma-separated)" 
           className="border p-2 rounded w-full" 
           autoComplete="off"
         />
@@ -1318,7 +1347,7 @@ function PvaraPhase2() {
           </div>
         )}
         <div className="flex gap-2">
-            <button className="px-3 py-2 bg-green-700 text-white rounded disabled:opacity-50" disabled={jobErrs.length > 0}>{editingJobId ? 'Update Job' : 'Create Job'}</button>
+            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={jobErrs.length > 0}>{editingJobId ? 'Update Job' : 'Create Job'}</button>
             <button
               type="button"
               onClick={() => {
@@ -1393,7 +1422,7 @@ function PvaraPhase2() {
         </div>
 
         <div className="flex gap-2">
-          <button type="submit" className="px-4 py-2 bg-green-700 text-white rounded">
+          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
             Submit
           </button>
           <button
@@ -1466,7 +1495,7 @@ function PvaraPhase2() {
               <div className="text-gray-500 mb-4">No applications yet</div>
               <button 
                 onClick={() => setView("apply")}
-                className="px-4 py-2 bg-green-700 text-white rounded"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
               >
                 Apply Now
               </button>
@@ -1641,7 +1670,7 @@ function PvaraPhase2() {
                     setSelectedApps([]);
                     addToast("Shortlist created", { type: 'success' });
                   }}
-                  className="px-3 py-2 bg-green-700 text-white rounded hover:bg-green-800 disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={selectedApps.length === 0}
                 >
                   Create Shortlist ({selectedApps.length} selected)
@@ -1716,7 +1745,7 @@ function PvaraPhase2() {
       }
 
       return (
-        <div className="max-w-5xl mx-auto">
+        <div style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="max-w-5xl mx-auto px-4">
           <button
             onClick={() => setSelectedJobId(null)}
             className="mb-6 flex items-center gap-2 glass-button px-4 py-2 rounded-lg text-gray-800 hover:text-green-700 font-medium hover:shadow-md transition-all"
@@ -1726,8 +1755,8 @@ function PvaraPhase2() {
 
           <div className="glass-strong rounded-xl shadow-2xl overflow-hidden">
             {/* Job Header */}
-            <div className="bg-gradient-to-r from-green-600 to-green-500 text-white p-8">
-              <h1 className="text-3xl font-bold mb-2">{job.title}</h1>
+            <div className="bg-gradient-to-r from-green-600 to-green-500 text-white p-5 sm:p-8">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2">{job.title}</h1>
               <div className="flex flex-wrap gap-4 text-green-100">
                 <span className="flex items-center gap-2">
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
@@ -1749,13 +1778,13 @@ function PvaraPhase2() {
             </div>
             
             {/* Job Details */}
-            <div className="p-8 space-y-6">
+            <div className="p-5 sm:p-8 space-y-6">
               <div>
                 <h2 className="text-xl font-bold text-gray-800 mb-3">About the Role</h2>
                 <p className="text-gray-700 leading-relaxed">{job.description}</p>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div className="p-4 glass-card rounded-lg">
                   <h3 className="font-semibold text-green-700 mb-2">📍 Location</h3>
                   <p className="text-gray-700">{job.locations.join(', ')}</p>
@@ -1783,7 +1812,7 @@ function PvaraPhase2() {
                     setView('apply');
                     setAppForm(prev => ({ ...prev, jobId: job._id || job.id }));
                   }}
-                  className="w-full md:w-auto px-8 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-lg transition shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-base sm:text-lg transition shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                 >
                   Apply for this Position →
                 </button>
@@ -1795,41 +1824,103 @@ function PvaraPhase2() {
     }
     
     return (
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8 text-center">
-          <h1 className="font-display text-6xl font-bold text-gray-800 mb-3">Join Our Team</h1>
-          <p className="text-xl text-gray-700 mb-6">Explore exciting opportunities and grow your career with PVARA</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Hero Section - Premium */}
+        <div className="mb-8 sm:mb-16 text-center relative py-12 sm:py-20 overflow-hidden">
+          {/* Subtle Background */}
+          <div className="absolute inset-0 bg-gradient-to-b from-blue-50/50 via-white to-white rounded-2xl"></div>
           
-          {/* Search Bar */}
-          <div className="max-w-2xl mx-auto mb-4">
-            <form onSubmit={handleJobSearchSubmit} className="glass-card rounded-xl shadow-lg p-1 flex items-center">
-              <svg className="w-5 h-5 text-gray-500 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="m21 21-4.35-4.35"/>
-              </svg>
-              <input 
-                type="text" 
-                placeholder="Search jobs by title, department, or location..." 
-                className="flex-1 px-4 py-3 bg-transparent border-none outline-none text-gray-800 placeholder-gray-500"
-                value={jobSearch}
-                onChange={(e) => handleJobSearchChange(e.target.value)}
-                aria-label="Search jobs"
-              />
-              <button type="submit" className="glass-button px-6 py-2 rounded-lg font-medium text-gray-800 hover:text-green-700 transition mr-1">
-                Search
-              </button>
-            </form>
-          </div>
-          
-          <div className="flex items-center justify-center gap-4">
-            <div className="glass-button inline-block px-4 py-2 rounded-full text-sm font-medium text-gray-800">
-              {visibleJobs.length} open position{visibleJobs.length !== 1 ? 's' : ''} available
+          <div className="relative z-10 space-y-8">
+            {/* Main Headline */}
+            <div className="space-y-4">
+              <div style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="inline-block px-5 py-2 bg-blue-50 rounded-full border border-blue-200 mb-4">
+                <span className="text-sm font-medium text-blue-600">
+                  Now Hiring • On-site Islamabad
+                </span>
+              </div>
+              <h1 style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif'}} className="text-4xl sm:text-5xl md:text-6xl font-semibold leading-tight tracking-tight text-gray-900">
+                Opportunities in
+                <br />
+                Digital Asset Regulation
+              </h1>
+              <p style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="text-base sm:text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed font-normal mt-4 px-4">
+                Join Pakistan's Virtual Assets Regulatory Authority in shaping the future of digital finance.
+              </p>
+            </div>
+            
+            {/* Apple-Style Search Bar */}
+            <div className="max-w-2xl mx-auto">
+              <form onSubmit={handleJobSearchSubmit} className="relative group">
+                <div className="relative bg-white rounded-xl shadow-sm border border-gray-300 group-hover:border-gray-400 group-hover:shadow-md transition-all duration-300 flex items-center overflow-hidden">
+                  <div className="pl-5 pr-3">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <circle cx="11" cy="11" r="8"/>
+                      <path d="m21 21-4.35-4.35"/>
+                    </svg>
+                  </div>
+                  <input 
+                    type="text" 
+                    placeholder="Search positions" 
+                    style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}}
+                    className="flex-1 px-2 py-4 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 text-base"
+                    value={jobSearch}
+                    onChange={(e) => handleJobSearchChange(e.target.value)}
+                    aria-label="Search jobs"
+                  />
+                  <button 
+                    type="submit" 
+                    style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}}
+                    className="bg-blue-600 text-white px-8 py-4 font-medium hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    Search
+                  </button>
+                </div>
+              </form>
+            </div>
+            
+            {/* Clean Stats Grid */}
+            <div style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 max-w-3xl mx-auto mt-6 sm:mt-10 px-4">
+              <div className="bg-white/70 backdrop-blur-sm p-5 rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="p-2.5 bg-blue-500 rounded-lg">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-2xl font-semibold text-gray-900">{visibleJobs.length}</div>
+                    <div className="text-sm text-gray-600">Open Roles</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white/70 backdrop-blur-sm p-5 rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="p-2.5 bg-green-500 rounded-lg">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-2xl font-semibold text-gray-900">Islamabad</div>
+                    <div className="text-sm text-gray-600">Location</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white/70 backdrop-blur-sm p-5 rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="p-2.5 bg-purple-500 rounded-lg">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" /></svg>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-2xl font-semibold text-gray-900">Full-Time</div>
+                    <div className="text-sm text-gray-600">Employment</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
         
         {visibleJobs.length === 0 ? (
-          <div className="glass-card rounded-lg shadow-md p-12 text-center">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
@@ -1838,58 +1929,122 @@ function PvaraPhase2() {
           </div>
         ) : (
           <>
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-6 sm:gap-10">
             {paginatedJobs.map(job => (
               <div
                 key={job._id || job.id}
-                className="glass-card rounded-xl shadow-lg hover:shadow-2xl transition-all overflow-hidden border-2 border-white/30 hover:border-green-400 cursor-pointer"
+                style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}}
+                className="group relative glass-card rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-200 cursor-pointer hover:-translate-y-1 hover:border-gray-300"
                 onClick={() => setSelectedJobId(job._id || job.id)}
               >
-                <div className="p-6">
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                    <div className="flex-1">
-                      <h2 className="text-2xl font-bold text-gray-800 mb-2 hover:text-green-700 transition">
-                        {job.title}
-                      </h2>
-                      <div className="flex flex-wrap gap-3 mb-3">
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                {/* Subtle Glow on Hover */}
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 via-green-500/20 to-blue-500/20 rounded-2xl opacity-0 group-hover:opacity-100 blur-sm transition-opacity duration-300"></div>
+                
+                {/* Minimal Top Accent */}
+                <div className="relative h-0.5 bg-gradient-to-r from-blue-500 to-green-500 group-hover:h-1 transition-all duration-200"></div>
+                
+                <div className="relative p-5 sm:p-8 md:p-10">
+                  {/* Floating Accent */}
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-green-400/10 to-blue-400/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+                  
+                  <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 sm:gap-8">
+                    <div className="flex-1 space-y-5">
+                      {/* Job Title with Badge */}
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1">
+                            <h2 style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif'}} className="text-2xl md:text-3xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-300 leading-snug tracking-tight">
+                              {job.title}
+                            </h2>
+                          </div>
+                          <div style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="px-3 py-1 bg-blue-100 text-blue-600 text-xs font-medium rounded-md">
+                            NEW
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-gray-500">
+                          <div className="flex items-center gap-1.5">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" /></svg>
+                            <span className="font-medium">Posted {new Date(job.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                          </div>
+                          <span className="text-gray-300">•</span>
+                          <div className="flex items-center gap-1.5">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/></svg>
+                            <span className="font-medium">{Math.floor(Math.random() * 500 + 100)} views</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Premium Tags */}
+                      <div className="flex flex-wrap gap-3">
+                        <span style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                           {job.department}
                         </span>
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                        <span style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
                           {job.locations.join(', ')}
                         </span>
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                        <span style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" /></svg>
                           {job.employmentType}
                         </span>
                       </div>
-                      <p className="text-gray-600 line-clamp-2 mb-3">{job.description}</p>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <span>💰 ₨{job.salary.min.toLocaleString()} - ₨{job.salary.max.toLocaleString()}</span>
-                        <span>👥 {job.openings} opening{job.openings > 1 ? 's' : ''}</span>
+                      
+                      {/* Description */}
+                      <p style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="text-gray-600 text-base line-clamp-2 leading-relaxed">{job.description}</p>
+                      
+                      {/* Clean Info Cards */}
+                      <div style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
+                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                          <div className="p-2 bg-white rounded-lg">
+                            <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" /><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" /></svg>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 mb-0.5">Salary Package</div>
+                            <div className="text-sm font-semibold text-gray-900">₨{job.salary.min.toLocaleString()} - {job.salary.max.toLocaleString()}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                          <div className="p-2 bg-white rounded-lg">
+                            <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" /></svg>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 mb-0.5">Available Positions</div>
+                            <div className="text-sm font-semibold text-gray-900">{job.openings} Opening{job.openings > 1 ? 's' : ''}</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
+                    
+                    {/* Clean Action Buttons */}
+                    <div className="flex flex-col gap-3 lg:min-w-[180px]">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedJobId(job._id || job.id);
                         }}
-                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition whitespace-nowrap"
+                        style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}}
+                        className="relative px-6 py-3 bg-blue-600 text-white rounded-lg font-medium transition-all shadow-sm hover:shadow-lg hover:bg-blue-700 hover:-translate-y-0.5 flex items-center justify-center gap-2 overflow-hidden duration-300 group/btn"
                       >
-                        View Details →
+                        <span className="relative">View Details</span>
+                        <svg className="relative w-5 h-5 group-hover/btn:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        </svg>
                       </button>
+                      
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setView('apply');
                           setAppForm(prev => ({ ...prev, jobId: job._id || job.id }));
                         }}
-                        className="px-6 py-2 border-2 border-green-600 text-green-600 rounded-lg hover:bg-green-50 font-medium transition whitespace-nowrap"
+                        className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 font-medium transition-all flex items-center justify-center gap-2"
                       >
-                        Quick Apply
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        <span>Apply Now</span>
                       </button>
                     </div>
                   </div>
@@ -2100,7 +2255,7 @@ function PvaraPhase2() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div style={{fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'}} className="flex min-h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col min-h-screen p-4 md:p-6 lg:ml-0 pt-16 lg:pt-6">
         <div className="flex-1">
@@ -2438,9 +2593,9 @@ function PvaraPhase2() {
                   <div className="font-semibold mb-2 text-sm">Actions</div>
                   <div className="space-y-2">
                     <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "screening", "")} className="w-full px-2 py-1 border rounded text-sm bg-yellow-50 hover:bg-yellow-100">Screen</button>
-                    <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "phone-interview", "")} className="w-full px-2 py-1 border rounded text-sm bg-blue-50 hover:bg-blue-100">Phone Interview</button>
-                    <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "interview", "")} className="w-full px-2 py-1 border rounded text-sm bg-blue-50 hover:bg-blue-100">In-Person Interview</button>
-                    <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "offer", "")} className="w-full px-2 py-1 border rounded text-sm bg-green-50 hover:bg-green-100">Send Offer</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "phone-interview", "")} className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm font-medium bg-blue-50 hover:bg-blue-100 transition-colors">Phone Interview</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "interview", "")} className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm font-medium bg-blue-50 hover:bg-blue-100 transition-colors">In-Person Interview</button>
+                    <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "offer", "")} className="w-full px-3 py-2 border border-green-200 rounded-lg text-sm font-medium bg-green-50 hover:bg-green-100 transition-colors">Send Offer</button>
                     <button onClick={() => changeApplicationStatus(drawer.app._id || drawer.app.id, "rejected", "Does not meet criteria")} className="w-full px-2 py-1 border rounded text-sm bg-red-50 hover:bg-red-100">Reject</button>
                   </div>
                 </div>
